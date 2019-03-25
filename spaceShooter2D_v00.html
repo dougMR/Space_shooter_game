@@ -23,9 +23,7 @@
     <canvas id="myCanvas" width="1000" height="800"></canvas>
 
     <script>
-        var AsteroidsNameSpace = (function(){
-
-            
+        var AsteroidsNameSpace = (function(){            
             
             let Game = (function(){
                 // "Singleton" of sorts
@@ -37,6 +35,7 @@
                 Game.strokeColor = "#CCCCCC";
                 Game.fillColor = Game.strokeColor;
                 Game.shots = [];
+                Game.opponents = [];
                 Game.currentTime = (new Date).getTime();
 
                 Game.run = function() {
@@ -50,10 +49,12 @@
                     playerShip.move();
                     Game.keepInBounds(playerShip);
                     Game.moveShots();
+                    Game.flyOpponents();
                     // Do the drawing
                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
                     playerShip.draw();
                     Game.drawShots();
+                    Game.drawOpponents();
                 }
 
                 Game.start = function(){
@@ -79,6 +80,32 @@
                         //     Game.checkCollisions( shot, ship );
                         // }
                     }
+                }
+                Game.flyOpponents = function () {
+                    for ( let opponent of Game.opponents ) {
+                        let radToPlayer = Math.atan2( playerShip.y - opponent.y, playerShip.x - opponent.x );
+                        // Get angle diff of angle to player vs opponent's facing
+                        let deg = degDiff( radToDeg( radToPlayer ), opponent.rotation );
+                        if ( Math.abs(deg) < 90 ) {
+                            opponent.thrust();
+                        }
+                        if ( deg > 0 ) {
+                            opponent.turnRight(1);
+                        } else if ( deg < 0 ) {
+                            opponent.turnLeft(1);
+                        }
+                        opponent.move();
+                        Game.keepInBounds(opponent);                    }
+                }
+                Game.drawOpponents = function () {
+                    for ( let opponent of Game.opponents ) {
+                        opponent.draw();
+                    }
+                }
+                Game.spawnOpponent = function() {
+                    let opponentShip = new Ship(20,30,300,100,0);
+                    // Game.opponents.push(opponentShip);
+                    opponentShip.myArray = Game.opponents;
                 }
                 Game.drawShots = function () {
                     for ( let shot of Game.shots ) {
@@ -317,11 +344,11 @@
                     }
                     this.postdraw();
                 }
-                turnRight () {
-                    this.rotation += 5;
+                turnRight ( value ) {
+                    this.rotation += value ? value : 5;
                 }
-                turnLeft () {
-                    this.rotation -= 5;
+                turnLeft ( value ) {
+                    this.rotation -= value ? value : 5;
                 }
                 shoot () {
                     if ( this.liveShots < 4 && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
@@ -429,6 +456,7 @@
             const canvas = document.getElementById('myCanvas');
             const ctx = canvas.getContext('2d');
             let playerShip = new Ship(10,20,100,100,0);
+            Game.spawnOpponent();
             
             Game.start();
 
@@ -452,12 +480,21 @@
             ============================================
             */
 
+            function radToDeg (rad) {
+                return rad * 180 / Math.PI;
+            }
             function degToRad (deg) {
-                return deg * Math.PI / 180;
+                return deg *  Math.PI / 180; 
             }
 
             function hypotenuse (a,b){
                 return Math.sqrt(a*a+b*b);
+            }
+
+            function degDiff (deg2, deg1) {
+                // console.log("degDif("+deg1+", "+deg2+")")
+                // console.log("diff: "+(deg2%180 - deg1%180))
+                return deg2%180 - deg1%180;
             }
 
             /*
