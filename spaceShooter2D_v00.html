@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>rotate items in canvas</title>
+
+    <script
+  src="http://code.jquery.com/jquery-3.3.1.min.js"
+  integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+  crossorigin="anonymous"></script>
+
+    <style>
+        #myCanvas {
+            border: 1px solid grey;
+        }
+    </style>
+</head>
+<body>
+    
+    <canvas id="myCanvas" width="500" height="500"></canvas>
+
+    <script>
+        var AsteroidsNameSpace = (function(){
+
+            
+            
+            let Game = (function(){
+                // "Singleton" of sorts
+                let Game = {};
+                let _intervalId = null;
+                let _fps = 30;
+                let _lastTick = (new Date).getTime();
+                let _timeStep = 1000/_fps;
+                Game.strokeColor = "#333333";
+                Game.run = function() {
+                    // Main Game Loop
+                    let curTick = (new Date).getTime();
+                    let elapsed = curTick - _lastTick;
+                    _lastTick = curTick;
+                    // Check Input
+                    Game.checkKeys();
+                    // Move Everything
+                    playerShip.move();
+                    Game.keepInBounds(playerShip);
+                    // Do the drawing
+                    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+                    playerShip.draw();
+                }
+                Game.start = function(){
+                    _intervalId = setInterval(Game.run, _timeStep);
+                }
+                Game.keepInBounds = function( element ) {
+                    if ( element.x > canvas.width ) {
+                        element.x -= canvas.width;
+                    } else if ( element.x < 0 ) {
+                        element.x += canvas.width;
+                    }
+                    if ( element.y > canvas.height ) {
+                        element.y -= canvas.height;
+                    } else if ( element.y < 0 ) {
+                        element.y += canvas.height;
+                    }   
+                }
+                Game.checkKeys = function () {
+                    for ( let key of Game.keys ) {
+                        if ( key && key.isDown && key.downFunc ) {
+                            key.downFunc();
+                        }
+                    }
+                }
+                Game.keys = new Array();
+                Game.setKey = function(name,keyCode,downFunc,upFunc){
+                    Game.keys[keyCode] = { name : name, isDown : false, downFunc : downFunc, upFunc : upFunc == undefined ? null : upFunc };
+                }
+                Game.keyDown = function ( keycode ) {
+                    if ( Game.keys[keycode] ) {
+                        // if ( Game.keys[keycode].downFunc != undefined ) {
+                        //     Game.keys[keycode].downFunc();
+                        // }
+                        Game.keys[keycode].isDown = true;
+                    }
+                }
+                Game.keyUp = function ( keycode ) {
+                    if ( Game.keys[keycode] ) {
+                        let key = Game.keys[keycode];
+                        if ( key.upFunc != undefined ) {
+                            key.upFunc();
+                        }
+                        key.isDown = false;
+                    }
+                }
+                return Game;
+            })();
+
+            
+
+
+
+            /*          
+            ============================================
+
+                        GAME ELEMENT CLASS
+
+            ============================================
+            */
+            class GameElement {
+                constructor () {
+                }
+                init ( x, y, rot, w, h ) {
+                    this._x = x ? x : 0;
+                    this._y = y ? y : 0;
+                    this._rot = rot ? rot : 0;
+                    this._width = w ? w : 0;
+                    this._height = h ? h : 0;
+                }
+                predraw () {
+                    ctx.translate( this.x, this.y );
+                    const radian = degToRad( this._rot );
+                    ctx.rotate( radian );
+                }
+                draw () {
+                    
+                    // Draw my shape
+                   
+                }
+                postdraw () {
+                    ctx.rotate( -degToRad( this._rot ) );
+                    ctx.translate( -this.x, -this.y );
+                }
+
+                get x () {
+                    return this._x;
+                }
+                set x ( value ) {
+                    this._x = value;
+                }
+
+                get y () {
+                    return this._y;
+                }
+                set y ( value ) {
+                    this._y = value;
+                }
+
+                get rotation () {
+                    return this._rot;
+                }
+                set rotation ( value ) {
+                    value = value % 360;
+                    this._rot = value;
+                }
+
+                get width () {
+                    return this._width;
+                }
+
+                get height () {
+                    return this._height;
+                }
+            }
+
+
+            /*          
+            ============================================
+
+                        TRIANGLE CLASS
+
+            ============================================
+            */
+            class Triangle extends GameElement {
+                constructor ( width, height, x, y, rot ) {
+                    super();
+                    super.init(x,y,rot,width,height);
+                    this.init();
+                }
+                init () {
+                    this._strokeColor = Game.strokeColor;
+                }
+                draw () {
+                    console.log("Triangle.draw()");
+                    
+                    // Draw Triangle
+                    ctx.strokeStyle = this._strokeColor;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+
+                    ctx.moveTo( this.height*0.5, 0 );
+                    ctx.lineTo( -this.height*0.5, -this.width * 0.5 );
+                    ctx.lineTo( -this.height *0.5, this.width*0.5 );
+                    ctx.lineTo( this.height*0.5, 0 );
+
+                    ctx.stroke();
+                    
+                }
+                set strokeColor (value) {
+                    this._strokeColor = value;
+                }
+
+                
+            }
+
+            /*
+            ============================================
+
+                        SHIP CLASS
+
+            ============================================
+            */
+            class Ship extends Triangle {
+                constructor(w,h,x,y,rot) {
+                    super (w,h,x,y,rot);
+                    
+                }
+                init () {
+                    this._speed = 0;
+                    // this._vector = this.rotation;
+                    this._xspeed = 0;
+                    this._yspeed = 0;
+                    this._maxthrust = 15;
+                    this._thrust = 0;
+                }
+                draw () {
+                    this.predraw();
+                    super.draw();
+
+                    if ( this._thrust > 0 ) {
+                        // Draw thrust
+                        ctx.moveTo( -this.height*0.5, -this.width*0.2 );
+                        ctx.lineTo( -this.height*0.5, this.width * 0.2 );
+                        ctx.lineTo( -this.height * 0.75, 0 );
+                        ctx.lineTo( -this.height*0.5, -this.width*0.2 );
+                        ctx.stroke();
+                    }
+                    this.postdraw();
+                }
+                turnRight () {
+                    this.rotation += 5;
+                }
+                turnLeft () {
+                    this.rotation -= 5;
+                }
+                thrust () {
+                    this._thrust += 2;
+                    this._thrust = Math.min ( this._thrust, this._maxthrust );
+                    let radian = degToRad( this.rotation );
+                    let xthrust = Math.cos(radian)*this._thrust;
+                    let ythrust = Math.sin(radian)*this._thrust;
+                    this.xspeed = (this.xspeed * 15 + xthrust) / 16;
+                    this.yspeed = (this.yspeed * 15 + ythrust) / 16;
+                    
+                }
+                move () {
+                    let radian = degToRad(this.rotation);
+                    this.x += this.xspeed;
+                    this.y += this.yspeed;
+                    // Deceleration
+                    if ( this._thrust > 0 ) {
+                        this._thrust -= 1;
+                    }
+                    this.xspeed *= 0.99;
+                    this.yspeed *= 0.99;
+                    if ( Math.abs(this.xspeed) < 0.5 && Math.abs(this.yspeed) < 0.5 ) {
+                        this.xspeed = this.yspeed = 0;
+                    }
+                }
+                set xspeed ( value ) {
+                    if ( value ) {
+                        this._xspeed = value;
+                    }
+                }
+                get xspeed () {
+                    return this._xspeed;
+                }
+
+                set yspeed ( value ) {
+                    if ( value ) {
+                        this._yspeed = value;
+                    }
+                }
+                get yspeed () {
+                    return this._yspeed;
+                }
+
+                // set thrust ( value ) {
+                //     if ( value ) {
+                //         this._thrust = value;
+                //     }
+                // }
+                // get thrust () {
+                //     return this._thrust;
+                // }
+            }
+
+            /*          
+            ============================================
+
+                        POINT OF ENTRY
+
+            ============================================
+            */
+            const canvas = document.getElementById('myCanvas');
+            const ctx = canvas.getContext('2d');
+            let playerShip = new Ship(10,20,100,100,0);
+            
+            Game.start();
+
+            // const triangle1 = new Triangle( 10, 20 );
+            // triangle1.x = 100;
+            // triangle1.y = 100;
+            // triangle1.rotation = 90;
+            // triangle1.draw();
+
+            // const triangle2 = new Triangle( 10, 20 );
+            // triangle1.x = 200;
+            // triangle1.y = 100;
+            // triangle1.rotation = -90;
+            // triangle1.draw();
+
+            /*          
+            ============================================
+
+                        UTILITIES
+
+            ============================================
+            */
+
+            function degToRad (deg) {
+                return deg * Math.PI / 180;
+            }
+
+            /*
+            ============================================
+
+                            KEY LISTENERS
+
+            ============================================
+            */
+
+            Game.setKey ( "left", 37, () => playerShip.turnLeft() );
+            Game.setKey ( "right", 39, () => playerShip.turnRight() );
+            Game.setKey ( "thrust", 38, () => playerShip.thrust() );
+            Game.setKey ( "thrust", 32, () => playerShip.thrust() );
+
+            $(document.body).keydown( function(e) {
+                console.log("keydown: "+e.which);
+                Game.keyDown(e.which);
+                // e.preventDefault();
+            });
+            $(document.body).keyup( function(e) {
+                Game.keyUp(e.which);
+                // e.preventDefault();
+            })
+
+        })();
+
+
+
+            
+
+       
+    </script>
+</body>
+</html>
