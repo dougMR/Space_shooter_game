@@ -10,6 +10,9 @@
   crossorigin="anonymous"></script>
 
     <style>
+        body {
+            background-color: #333;
+        }
         #myCanvas {
             border: 1px solid grey;
         }
@@ -17,7 +20,7 @@
 </head>
 <body>
     
-    <canvas id="myCanvas" width="500" height="500"></canvas>
+    <canvas id="myCanvas" width="1000" height="800"></canvas>
 
     <script>
         var AsteroidsNameSpace = (function(){
@@ -31,21 +34,28 @@
                 let _fps = 30;
                 let _lastTick = (new Date).getTime();
                 let _timeStep = 1000/_fps;
-                Game.strokeColor = "#333333";
+                Game.strokeColor = "#CCCCCC";
+                Game.fillColor = Game.strokeColor;
+                Game.shots = [];
+                Game.currentTime = (new Date).getTime();
+
                 Game.run = function() {
                     // Main Game Loop
-                    let curTick = (new Date).getTime();
-                    let elapsed = curTick - _lastTick;
-                    _lastTick = curTick;
+                    Game.currentTime = (new Date).getTime();
+                    let elapsed = Game.currentTime - _lastTick;
+                    _lastTick = Game.currentTime;
                     // Check Input
                     Game.checkKeys();
                     // Move Everything
                     playerShip.move();
                     Game.keepInBounds(playerShip);
+                    Game.moveShots();
                     // Do the drawing
                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
                     playerShip.draw();
+                    Game.drawShots();
                 }
+
                 Game.start = function(){
                     _intervalId = setInterval(Game.run, _timeStep);
                 }
@@ -60,6 +70,20 @@
                     } else if ( element.y < 0 ) {
                         element.y += canvas.height;
                     }   
+                }
+                Game.moveShots = function () {
+                    for ( let shot of Game.shots ) {
+                        shot.move();
+                        Game.keepInBounds( shot );
+                        // for ( let ship of Game.ships ) {
+                        //     Game.checkCollisions( shot, ship );
+                        // }
+                    }
+                }
+                Game.drawShots = function () {
+                    for ( let shot of Game.shots ) {
+                        shot.draw();
+                    }
                 }
                 Game.checkKeys = function () {
                     for ( let key of Game.keys ) {
@@ -107,6 +131,7 @@
                 constructor () {
                 }
                 init ( x, y, rot, w, h ) {
+                    this._myArray = null;
                     this._x = x ? x : 0;
                     this._y = y ? y : 0;
                     this._rot = rot ? rot : 0;
@@ -126,6 +151,20 @@
                 postdraw () {
                     ctx.rotate( -degToRad( this._rot ) );
                     ctx.translate( -this.x, -this.y );
+                }
+                move () {
+                    this.x += this.xspeed;
+                    this.y += this.yspeed;
+                }
+                kill () {
+                    console.log("kill element");
+                    // remove me from myArray
+                    if ( this.myArray ) {
+                        let i = this.myArray.indexOf( this );
+                        this.myArray.splice( i, 1 );
+                    }
+                    // Kill me
+                    delete this;
                 }
 
                 get x () {
@@ -153,9 +192,47 @@
                 get width () {
                     return this._width;
                 }
+                set width ( value ) {
+                    if ( typeof value == 'number' ) {
+                        this._width = value;
+                    }
+                }
 
                 get height () {
                     return this._height;
+                }
+                set height ( value ) {
+                    if ( typeof value == 'number' ) {
+                        this._height = value;
+                    }
+                }
+
+                set xspeed ( value ) {
+                    if ( typeof value == 'number' ) {
+                        this._xspeed = value;
+                    }
+                }
+                get xspeed () {
+                    return this._xspeed;
+                }
+
+                set yspeed ( value ) {
+                    if ( typeof value == 'number' ) {
+                        this._yspeed = value;
+                    }
+                }
+                get yspeed () {
+                    return this._yspeed;
+                }
+
+                set myArray ( value ) {
+                    if ( Array.isArray( value) ) {
+                        this._myArray = value;
+                        this._myArray.push( this );
+                    }
+                }
+                get myArray () {
+                    return this._myArray;
                 }
             }
 
@@ -174,11 +251,13 @@
                     this.init();
                 }
                 init () {
+                    console.log("Triangle.init()")
                     this._strokeColor = Game.strokeColor;
+                    console.log("this._strokeColor: "+this._strokeColor);
                 }
                 draw () {
-                    console.log("Triangle.draw()");
-                    
+                    // console.log("Triangle.draw()");
+                    // console.log("this._strokeColor: "+this._strokeColor);
                     // Draw Triangle
                     ctx.strokeStyle = this._strokeColor;
                     ctx.lineWidth = 2;
@@ -210,10 +289,15 @@
                 constructor(w,h,x,y,rot) {
                     super (w,h,x,y,rot);
                     
+                    this.init();
                 }
                 init () {
+                    super.init();
+                    this._lastShotTime = 0;
+                    this._liveShots = 0;
+                    this._shotFrequency = 100;
+                    this._shotPower = 10;
                     this._speed = 0;
-                    // this._vector = this.rotation;
                     this._xspeed = 0;
                     this._yspeed = 0;
                     this._maxthrust = 15;
@@ -239,6 +323,22 @@
                 turnLeft () {
                     this.rotation -= 5;
                 }
+                shoot () {
+                    if ( this.liveShots < 4 && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
+                        let cos = Math.cos(this.radian);
+                        let sin = Math.sin(this.radian);
+                        let nosex = this.x + cos * this.height * 0.5;
+                        let nosey = this.y + sin * this.height * 0.5;
+                        let xspeed = this.xspeed + cos * this._shotPower;
+                        let yspeed = this.yspeed + sin * this._shotPower;
+                        let shot = new Shot( nosex, nosey, xspeed, yspeed, this );
+                        shot.myArray = Game.shots;
+
+                        this.liveShots++;
+                        this._lastShotTime = Game.currentTime;
+                    }
+                    
+                }
                 thrust () {
                     this._thrust += 2;
                     this._thrust = Math.min ( this._thrust, this._maxthrust );
@@ -247,12 +347,9 @@
                     let ythrust = Math.sin(radian)*this._thrust;
                     this.xspeed = (this.xspeed * 15 + xthrust) / 16;
                     this.yspeed = (this.yspeed * 15 + ythrust) / 16;
-                    
                 }
                 move () {
-                    let radian = degToRad(this.rotation);
-                    this.x += this.xspeed;
-                    this.y += this.yspeed;
+                    super.move();
                     // Deceleration
                     if ( this._thrust > 0 ) {
                         this._thrust -= 1;
@@ -263,32 +360,63 @@
                         this.xspeed = this.yspeed = 0;
                     }
                 }
-                set xspeed ( value ) {
-                    if ( value ) {
-                        this._xspeed = value;
-                    }
-                }
-                get xspeed () {
-                    return this._xspeed;
+                get radian () {
+                    return degToRad(this.rotation);
                 }
 
-                set yspeed ( value ) {
-                    if ( value ) {
-                        this._yspeed = value;
+                set liveShots ( value ) {
+                    if ( typeof value == 'number' ) {
+                        this._liveShots = value;
                     }
                 }
-                get yspeed () {
-                    return this._yspeed;
+                get liveShots () {
+                    return this._liveShots;
                 }
+            }
 
-                // set thrust ( value ) {
-                //     if ( value ) {
-                //         this._thrust = value;
-                //     }
-                // }
-                // get thrust () {
-                //     return this._thrust;
-                // }
+            /*
+            ============================================
+
+                        SHOT CLASS
+
+            ============================================
+            */
+
+            class Shot extends GameElement {
+                constructor (x, y, xspeed, yspeed, ship) {
+                    super();
+                    this.x = x;
+                    this.y = y;
+                    this.xspeed = xspeed;
+                    this.yspeed = yspeed;
+                    this.myShip = ship;
+                    this.init();
+                }
+                init() {
+                    this._startTime = Game.currentTime;
+                    this._lifeSpan = 2000;
+                    this.width = 5;
+                    this.height = 5;
+                }
+                move () {
+                    super.move();
+                    
+                    this._totalDistance += hypotenuse( this.xspeed, this.yspeed );
+                    if ( Game.currentTime >= this._startTime + this._lifeSpan ) {
+                        this.kill();
+                    }
+                }
+                draw () {
+                    // Draw a circle
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.width * 0.5, 0, 2 * Math.PI);
+                    ctx.fillStyle = Game.fillColor;
+                    ctx.fill();
+                }
+                kill () {
+                    super.kill();
+                    this.myShip.liveShots --;
+                }
             }
 
             /*          
@@ -328,6 +456,10 @@
                 return deg * Math.PI / 180;
             }
 
+            function hypotenuse (a,b){
+                return Math.sqrt(a*a+b*b);
+            }
+
             /*
             ============================================
 
@@ -339,7 +471,9 @@
             Game.setKey ( "left", 37, () => playerShip.turnLeft() );
             Game.setKey ( "right", 39, () => playerShip.turnRight() );
             Game.setKey ( "thrust", 38, () => playerShip.thrust() );
-            Game.setKey ( "thrust", 32, () => playerShip.thrust() );
+            Game.setKey ( "thrust", 93, () => playerShip.thrust() );
+            Game.setKey ( "thrust", 91, () => playerShip.thrust() );
+            Game.setKey ( "fire", 32, () => playerShip.shoot() );
 
             $(document.body).keydown( function(e) {
                 console.log("keydown: "+e.which);
