@@ -36,29 +36,51 @@
                 Game.fillColor = Game.strokeColor;
                 Game.shots = [];
                 Game.opponents = [];
+                Game.debris = [];
                 Game.currentTime = (new Date).getTime();
+                Game.nextOpponentTime = Game.currentTime + 5000;
+                Game.gameOver = false;
 
                 Game.run = function() {
                     // Main Game Loop
                     Game.currentTime = (new Date).getTime();
                     let elapsed = Game.currentTime - _lastTick;
                     _lastTick = Game.currentTime;
-                    // Check Input
-                    Game.checkKeys();
+                    
                     // Move Everything
-                    playerShip.move();
-                    Game.keepInBounds(playerShip);
-                    Game.moveShots();
-                    Game.flyOpponents();
+                    Game.moveItems( Game.shots );
+                    Game.moveItems( Game.opponents );
+                    Game.moveItems( Game.debris );
+                    // Check Collisions
+                    Game.checkCollisions( Game.shots, Game.opponents );
+                    if ( playerShip.alive ) {
+                        // Check Input
+                        Game.checkKeys();
+                        playerShip.move();
+                        Game.flyOpponents();
+                        Game.keepInBounds(playerShip);
+                        Game.checkCollisions( [playerShip], Game.shots );
+                        Game.checkCollisions( [playerShip], Game.opponents );      
+                    }
+                    
                     // Do the drawing
                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
                     playerShip.draw();
-                    Game.drawShots();
-                    Game.drawOpponents();
+                    Game.drawItems( Game.shots );
+                    Game.drawItems( Game.opponents );
+                    Game.drawItems( Game.debris );
+
+                    if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < 3 && ! Game.gameOver ) {
+                        Game.spawnOpponent();
+                        Game.nextOpponentTime = Game.currentTime + 5000;
+                    }
                 }
 
                 Game.start = function(){
                     _intervalId = setInterval(Game.run, _timeStep);
+                }
+                Game.stop = function() {
+                    clearInterval( _intervalId );
                 }
                 Game.keepInBounds = function( element ) {
                     if ( element.x > canvas.width ) {
@@ -72,13 +94,15 @@
                         element.y += canvas.height;
                     }   
                 }
-                Game.moveShots = function () {
-                    for ( let shot of Game.shots ) {
-                        shot.move();
-                        Game.keepInBounds( shot );
-                        // for ( let ship of Game.ships ) {
-                        //     Game.checkCollisions( shot, ship );
-                        // }
+                Game.moveItems = function ( ar ) {
+                    for ( let item of ar ) {
+                        item.move();
+                        Game.keepInBounds( item );
+                    }
+                }
+                Game.drawItems = function ( ar ) {
+                    for ( let item of ar ) {
+                        item.draw();
                     }
                 }
                 Game.flyOpponents = function () {
@@ -88,30 +112,60 @@
                         let deg = degDiff( radToDeg( radToPlayer ), opponent.rotation );
                         if ( Math.abs(deg) < 90 ) {
                             opponent.thrust();
+                            if ( Math.abs(deg) < 10 ) {
+                                opponent.shoot();
+                            }
                         }
                         if ( deg > 0 ) {
                             opponent.turnRight(1);
                         } else if ( deg < 0 ) {
                             opponent.turnLeft(1);
                         }
-                        opponent.move();
-                        Game.keepInBounds(opponent);                    }
-                }
-                Game.drawOpponents = function () {
-                    for ( let opponent of Game.opponents ) {
-                        opponent.draw();
                     }
                 }
+
                 Game.spawnOpponent = function() {
-                    let opponentShip = new Ship(20,30,300,100,0);
+                    let x = canvas.width * Math.random();
+                    let y = canvas.height * Math.random();
+                    let opponentShip = new Ship(20,30,x,y,0);
                     // Game.opponents.push(opponentShip);
                     opponentShip.myArray = Game.opponents;
                 }
-                Game.drawShots = function () {
-                    for ( let shot of Game.shots ) {
-                        shot.draw();
+                
+                Game.checkCollisions = function ( groupA, groupB ) {
+                    for ( let A of groupA ) {
+                        for ( let B of groupB ) {
+                            if ( Game.checkCollision ( A, B ) ) {
+                                A.kill();
+                                Game.explode(B.x,B.y);
+                                B.kill();
+                            }
+                        }
                     }
                 }
+                Game.checkCollision = function ( A, B ) {
+                    // Does center of A move through circle of B this frame? 
+                    let Ax0 = A.x-A.xspeed,
+                        Ax1 = A.x;
+                    let hitTime = circleSweepTest( A, B );
+                    let hit = hitTime <= 1 && hitTime >= 0;
+                    return hit;
+                }
+                Game.explode = function(x,y) {
+                    for ( let i = 0; i < 40; i++ ) {
+                        let maxSpeed = 10
+                        let speed = 1+Math.random()*(maxSpeed-1);
+                        let rad = degToRad(Math.random() * 360);
+                        let xspeed = Math.cos(rad) * speed;
+                        let yspeed = Math.sin(rad) * speed;
+                        let diameter = (maxSpeed+4-speed)*0.5;
+                        let lifespan = 1000 + 500*(speed/maxSpeed);
+                        let debris = new Debris(x,y,xspeed,yspeed,diameter,lifespan);
+                        debris.myArray = Game.debris;
+                    }
+                }
+
+
                 Game.checkKeys = function () {
                     for ( let key of Game.keys ) {
                         if ( key && key.isDown && key.downFunc ) {
@@ -119,6 +173,7 @@
                         }
                     }
                 }
+
                 Game.keys = new Array();
                 Game.setKey = function(name,keyCode,downFunc,upFunc){
                     Game.keys[keyCode] = { name : name, isDown : false, downFunc : downFunc, upFunc : upFunc == undefined ? null : upFunc };
@@ -156,8 +211,10 @@
             */
             class GameElement {
                 constructor () {
+                    console.log("GameElement.constructor()")
                 }
                 init ( x, y, rot, w, h ) {
+                    console.log("GameElement.init()")
                     this._myArray = null;
                     this._x = x ? x : 0;
                     this._y = y ? y : 0;
@@ -184,7 +241,7 @@
                     this.y += this.yspeed;
                 }
                 kill () {
-                    console.log("kill element");
+                    // console.log("kill element");
                     // remove me from myArray
                     if ( this.myArray ) {
                         let i = this.myArray.indexOf( this );
@@ -273,6 +330,7 @@
             */
             class Triangle extends GameElement {
                 constructor ( width, height, x, y, rot ) {
+                    console.log("Triangle.constructor()")
                     super();
                     super.init(x,y,rot,width,height);
                     this.init();
@@ -280,11 +338,8 @@
                 init () {
                     console.log("Triangle.init()")
                     this._strokeColor = Game.strokeColor;
-                    console.log("this._strokeColor: "+this._strokeColor);
                 }
                 draw () {
-                    // console.log("Triangle.draw()");
-                    // console.log("this._strokeColor: "+this._strokeColor);
                     // Draw Triangle
                     ctx.strokeStyle = this._strokeColor;
                     ctx.lineWidth = 2;
@@ -296,13 +351,10 @@
                     ctx.lineTo( this.height*0.5, 0 );
 
                     ctx.stroke();
-                    
                 }
                 set strokeColor (value) {
                     this._strokeColor = value;
                 }
-
-                
             }
 
             /*
@@ -314,14 +366,16 @@
             */
             class Ship extends Triangle {
                 constructor(w,h,x,y,rot) {
+                    console.log("Ship.constructor()")
                     super (w,h,x,y,rot);
-                    
                     this.init();
                 }
                 init () {
+                    console.log("Ship.init()")
                     super.init();
                     this._lastShotTime = 0;
                     this._liveShots = 0;
+                    this._maxShots = 4;
                     this._shotFrequency = 100;
                     this._shotPower = 10;
                     this._speed = 0;
@@ -351,11 +405,11 @@
                     this.rotation -= value ? value : 5;
                 }
                 shoot () {
-                    if ( this.liveShots < 4 && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
+                    if ( this.liveShots < this._maxShots && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
                         let cos = Math.cos(this.radian);
                         let sin = Math.sin(this.radian);
-                        let nosex = this.x + cos * this.height * 0.5;
-                        let nosey = this.y + sin * this.height * 0.5;
+                        let nosex = this.x + cos * this.height * 0.75;
+                        let nosey = this.y + sin * this.height * 0.75;
                         let xspeed = this.xspeed + cos * this._shotPower;
                         let yspeed = this.yspeed + sin * this._shotPower;
                         let shot = new Shot( nosex, nosey, xspeed, yspeed, this );
@@ -398,6 +452,39 @@
                 }
                 get liveShots () {
                     return this._liveShots;
+                }
+                
+            }
+
+            /*
+            ============================================
+
+                        PLAYER SHIP CLASS
+
+            ============================================
+            */
+            class PlayerShip extends Ship {
+                constructor (w,h,x,y,rot) {
+                    super (w,h,x,y,rot);
+                    this._alive = true;
+                    this._maxShots = 6;
+                }
+                draw () {
+                    if ( this._alive ) {
+                        super.draw();
+                    }
+                }
+                kill () {
+                    if ( this._alive ) {
+                        Game.gameOver =true;
+                        super.kill();
+                        this._alive = false;
+                        this.x = 0;
+                        this.y = 0;
+                    }
+                }
+                get alive () {
+                    return this._alive;
                 }
             }
 
@@ -446,6 +533,43 @@
                 }
             }
 
+            /*
+            ============================================
+
+                        DEBRIS CLASS
+
+            ============================================
+            */
+            class Debris extends GameElement {
+                constructor (x,y,xspeed,yspeed,diameter,lifespan) {
+                    super();
+                    this._killTime = Game.currentTime + lifespan;
+                    this.x = x;
+                    this.y = y;
+                    this.xspeed = xspeed;
+                    this.yspeed = yspeed;
+                    this.width = this.height = diameter;
+                }
+                init () {
+
+                }
+                move () {
+                    super.move();
+                    Game.keepInBounds(this);
+                    if ( Game.currentTime >= this._killTime ) {
+                        this.kill();
+                    }
+                }
+                draw () {
+                    // Draw a circle
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.width * 0.5, 0, 2 * Math.PI);
+                    ctx.fillStyle = Game.fillColor;
+                    ctx.fill();
+                }
+
+            }
+
             /*          
             ============================================
 
@@ -455,7 +579,7 @@
             */
             const canvas = document.getElementById('myCanvas');
             const ctx = canvas.getContext('2d');
-            let playerShip = new Ship(10,20,100,100,0);
+            let playerShip = new PlayerShip(10,20,100,100,0);
             Game.spawnOpponent();
             
             Game.start();
@@ -497,6 +621,36 @@
                 return deg2%180 - deg1%180;
             }
 
+            function circleSweepTest( sprite1, sprite2 ) {
+                // circ1 and circ2 are Unit objects
+                // algorithm from:  http://compsci.ca/v3/viewtopic.php?t=14897
+                let Axv = sprite1.xspeed,
+                    Ayv = sprite1.yspeed,
+                    Bxv = sprite2.xspeed,
+                    Byv = sprite2.yspeed;
+
+                var maxint = 10000;
+                /* Returns the amount of frames untill a collision will occur */ 
+                var t = maxint;
+                var A, B, C, D, DISC;
+                /* Breaking down the formula for t */ 
+                A = Math.pow( Axv, 2 ) + Math.pow( Ayv, 2 ) - 2 * Axv * Bxv + Math.pow( Bxv, 2 ) - 2 * Ayv * Byv + Math.pow( Byv, 2 );
+                B = -sprite1.x * Axv - sprite1.y * Ayv + Axv * sprite2.x + Ayv * sprite2.y + sprite1.x * Bxv - sprite2.x * Bxv + sprite1.y * Byv - sprite2.y * Byv;
+                C = Math.pow( Axv, 2 ) + Math.pow( Ayv, 2 ) - 2 * Axv * Bxv + Math.pow( Bxv, 2 ) - 2 * Ayv * Byv + Math.pow( Byv, 2 );
+                D = Math.pow( sprite1.x, 2 ) + Math.pow( sprite1.y, 2 ) - Math.pow( sprite1.width*0.5, 2 ) - 2 * sprite1.x * sprite2.x + Math.pow( sprite2.x, 2 ) - 2 * sprite1.y * sprite2.y + Math.pow( sprite2.y, 2 ) - 2 * sprite1.width*0.5 * sprite2.width*0.5 - Math.pow( sprite2.width*0.5, 2 );
+                DISC = Math.pow( (-2 * B), 2 ) - 4 * C * D;
+
+                /* If the discriminent if non negative, a collision will occur and * 
+                * we must compare the time to our current time of collision. We   * 
+                * udate the time if we find a collision that has occurd earlier   * 
+                * than the previous one.                                          */ 
+                if ( DISC >= 0 ) {
+                    /* We want the smallest time */ 
+                    t = Math.min (Math.min (t, 0.5 * (2 * B - Math.sqrt (DISC)) / A), 0.5 * (2 * B + Math.sqrt (DISC)) / A);
+                }
+                return t;
+            }
+
             /*
             ============================================
 
@@ -515,11 +669,11 @@
             $(document.body).keydown( function(e) {
                 console.log("keydown: "+e.which);
                 Game.keyDown(e.which);
-                // e.preventDefault();
+                e.preventDefault();
             });
             $(document.body).keyup( function(e) {
                 Game.keyUp(e.which);
-                // e.preventDefault();
+                e.preventDefault();
             })
 
         })();
