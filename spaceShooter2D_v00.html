@@ -19,6 +19,9 @@
     </style>
 </head>
 <body>
+    <p style="color: #CCC">
+        turn: l/r arrows, thrust: up arrow, fire: spacebar
+    </p>
     
     <canvas id="myCanvas" width="1000" height="800"></canvas>
 
@@ -27,11 +30,13 @@
             
             let Game = (function(){
                 // "Singleton" of sorts
+                // Turning into a Catch-all
                 let Game = {};
                 let _intervalId = null;
                 let _fps = 30;
                 let _lastTick = (new Date).getTime();
                 let _timeStep = 1000/_fps;
+                Game.timeStep = _timeStep;
                 Game.strokeColor = "#CCCCCC";
                 Game.fillColor = Game.strokeColor;
                 Game.shots = [];
@@ -82,6 +87,23 @@
                 Game.stop = function() {
                     clearInterval( _intervalId );
                 }
+                Game.respawnPlayer = function () {
+                    // wait 1 sec
+                    _timeoutId = setTimeout( function() {
+                        Game.spawnPlayer();
+                    }, 1000 );
+                }
+                Game.spawnPlayer = function () {
+                    // select position
+                    let x = Math.random() * canvas.width;
+                    let y = Math.random() * canvas.width;
+                    let duration = 1500;
+                    _timeoutId = setTimeout( function() {
+                        // show Player at x/y
+                        playerShip.spawn(x,y);
+                    }, duration );
+                    Game.implode(x,y,duration);
+                }
                 Game.keepInBounds = function( element ) {
                     if ( element.x > canvas.width ) {
                         element.x -= canvas.width;
@@ -117,9 +139,9 @@
                             }
                         }
                         if ( deg > 0 ) {
-                            opponent.turnRight(1);
+                            opponent.turnRight(2);
                         } else if ( deg < 0 ) {
-                            opponent.turnLeft(1);
+                            opponent.turnLeft(2);
                         }
                     }
                 }
@@ -164,7 +186,24 @@
                         debris.myArray = Game.debris;
                     }
                 }
-
+                Game.implode = function(endx,endy,dur) {
+                    let maxDist = 1000;
+                    let minDist = 100;
+                    let maxSpeed = maxDist / Game.timeStep;
+                    let numSteps = dur / Game.timeStep;
+                    for ( let i = 0; i < 40; i++ ) {
+                        let dist = minDist + Math.random() * (maxDist-minDist);
+                        let speed = dist / numSteps;
+                        let rad = degToRad(Math.random() * 360);
+                        let xspeed = Math.cos(rad) * speed;
+                        let yspeed = Math.sin(rad) * speed;
+                        let x = endx - xspeed * numSteps;
+                        let y = endy - yspeed * numSteps;
+                        let diameter = Math.random()*12*0.5;
+                        let debris = new Debris(x,y,xspeed,yspeed,diameter,dur);
+                        debris.myArray = Game.debris;
+                    }
+                }
 
                 Game.checkKeys = function () {
                     for ( let key of Game.keys ) {
@@ -378,7 +417,6 @@
                     this._maxShots = 4;
                     this._shotFrequency = 100;
                     this._shotPower = 10;
-                    this._speed = 0;
                     this._xspeed = 0;
                     this._yspeed = 0;
                     this._maxthrust = 15;
@@ -468,6 +506,8 @@
                     super (w,h,x,y,rot);
                     this._alive = true;
                     this._maxShots = 6;
+                    this._shotFrequency = 80;
+                    this._shotPower = 12;
                 }
                 draw () {
                     if ( this._alive ) {
@@ -476,12 +516,20 @@
                 }
                 kill () {
                     if ( this._alive ) {
-                        Game.gameOver =true;
-                        super.kill();
+                        // Game.gameOver = true;
+                        Game.respawnPlayer();
+                        // super.kill();
                         this._alive = false;
                         this.x = 0;
                         this.y = 0;
                     }
+                }
+                spawn (x,y) {
+                    this.x = x;
+                    this.y = y;
+                    this.xspeed = this.yspeed = 0;
+                    this._thrust = 0;
+                    this._alive = true;
                 }
                 get alive () {
                     return this._alive;
