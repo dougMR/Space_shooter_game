@@ -53,12 +53,13 @@
                 Game.timeStep = _timeStep;
                 Game.strokeColor = "#CCCCCC";
                 Game.fillColor = Game.strokeColor;
+                Game.playerColor = "#55CCFF";
                 Game.shots = [];
                 Game.opponents = [];
                 Game.debris = [];
                 Game.currentTime = (new Date).getTime();
                 Game.nextOpponentTime = Game.currentTime + 5000;
-                Game.maxOpponents = 3;
+                Game.maxOpponents = 1;
                 Game.gameOver = false;
                 Game.score = 0;
                 Game.paused = false;
@@ -215,16 +216,22 @@
                     _pointField.innerHTML = Game.score;
                 }
                 Game.explode = function(x,y) {
-                    for ( let i = 0; i < 40; i++ ) {
-                        let maxSpeed = 10
+                    for ( let i = 0; i < 60; i++ ) {
+                        let maxSpeed = 12
                         let speed = 0.5+Math.random()*(maxSpeed-0.5);
                         let rad = degToRad(Math.random() * 360);
                         let xspeed = Math.cos(rad) * speed;
                         let yspeed = Math.sin(rad) * speed;
-                        let diameter = (maxSpeed+4-speed)*0.5;
+                        let diameter = 7 - (speed/maxSpeed) * 5;
                         let lifespan = 1000 + 500*(speed/maxSpeed);
-                        let color = diameter < 5 ? "#FF8800" : "#FFFF00";
+                        let color = "#FFFF00";
+                        if ( diameter > 6.5 ) {
+                            color = "#FF0000";
+                        } else if ( diameter > 5 ) {
+                            color = "#FF8800"
+                        }
                         let debris = new Debris(x,y,xspeed,yspeed,diameter,lifespan, color);
+                        debris.decelerate = true;
                         debris.myArray = Game.debris;
                     }
                 }
@@ -242,7 +249,7 @@
                         let x = endx - xspeed * numSteps;
                         let y = endy - yspeed * numSteps;
                         let diameter = Math.random()*12*0.5;
-                        let debris = new Debris(x,y,xspeed,yspeed,diameter,dur, "#55CCFF");
+                        let debris = new Debris(x,y,xspeed,yspeed,diameter,dur, Game.playerColor);
                         debris.myArray = Game.debris;
                     }
                 }
@@ -496,6 +503,11 @@
                     let ythrust = Math.sin(radian)*this._thrust;
                     this.xspeed = (this.xspeed * 15 + xthrust) / 16;
                     this.yspeed = (this.yspeed * 15 + ythrust) / 16;
+                    if ( this.rotation > 43 && this.rotation < 58 ) {
+                        console.log( `thrust: ${this._thrust}`);
+                        console.log(`xythrust: ${xthrust}, ${ythrust}`);
+                        console.log(`xyspeed: ${this.xspeed}, ${this.yspeed}`);
+                    }
                 }
                 move () {
                     super.move();
@@ -505,7 +517,7 @@
                     }
                     this.xspeed *= 0.99;
                     this.yspeed *= 0.99;
-                    if ( Math.abs(this.xspeed) < 0.5 && Math.abs(this.yspeed) < 0.5 ) {
+                    if ( Math.abs(this.xspeed) < 0.1 && Math.abs(this.yspeed) < 0.1 ) {
                         this.xspeed = this.yspeed = 0;
                     }
                 }
@@ -539,6 +551,7 @@
                     this._shotFrequency = 80;
                     this._shotPower = 12;
                     this._value = -1;
+                    this._strokeColor = Game.playerColor;
                 }
                 draw () {
                     if ( this._alive ) {
@@ -627,11 +640,15 @@
                     this.yspeed = yspeed;
                     this.width = this.height = diameter;
                     this._fillColor = fillColor || Game.fillColor;
+                    this._decelerate = false;
                 }
                 move () {
                     super.move();
                     Game.keepInBounds(this);
-                    
+                    if ( this.decelerate ) {
+                        this.xspeed *= 0.97;
+                        this.yspeed *= 0.97;
+                    }
                     if ( Game.currentTime >= this._killTime ) {
                         this.kill();
                     }
@@ -642,6 +659,12 @@
                     ctx.arc(this.x, this.y, this.width * 0.5, 0, 2 * Math.PI);
                     ctx.fillStyle = this._fillColor;
                     ctx.fill();
+                }
+                get decelerate () {
+                    return this._decelerate;
+                }
+                set decelerate ( booleanValue ) {
+                    this._decelerate = !!booleanValue;
                 }
 
             }
