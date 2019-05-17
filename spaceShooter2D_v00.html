@@ -2,19 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>rotate items in canvas</title>
+    <title>SpaceShooter</title>
 
-    <script
+    <!-- <script
   src="http://code.jquery.com/jquery-3.3.1.min.js"
   integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
-  crossorigin="anonymous"></script>
+  crossorigin="anonymous"></script> -->
 
     <style>
         body {
             background-color: #333;
+            margin: 0;
+            padding: 0;
         }
         #myCanvas {
             border: 1px solid grey;
+        }
+        #score {
+            color: white;
+            font-size: 2rem;
+            font-family: monospace;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+            text-align: right;
         }
     </style>
 </head>
@@ -22,7 +33,9 @@
     <p style="color: #CCC">
         turn: l/r arrows, thrust: up arrow, fire: spacebar
     </p>
-    
+    <span id="score">
+        00
+    </span>
     <canvas id="myCanvas" width="1000" height="800"></canvas>
 
     <script>
@@ -31,11 +44,12 @@
             let Game = (function(){
                 // "Singleton" of sorts
                 // Turning into a Catch-all
-                let Game = {};
+                const Game = {};
                 let _intervalId = null;
                 let _fps = 30;
                 let _lastTick = (new Date).getTime();
                 let _timeStep = 1000/_fps;
+                let _pointField = document.getElementById("score");
                 Game.timeStep = _timeStep;
                 Game.strokeColor = "#CCCCCC";
                 Game.fillColor = Game.strokeColor;
@@ -44,10 +58,15 @@
                 Game.debris = [];
                 Game.currentTime = (new Date).getTime();
                 Game.nextOpponentTime = Game.currentTime + 5000;
+                Game.maxOpponents = 3;
                 Game.gameOver = false;
+                Game.score = 0;
+                Game.paused = false;
 
                 Game.run = function() {
+                    //
                     // Main Game Loop
+                    //
                     Game.currentTime = (new Date).getTime();
                     let elapsed = Game.currentTime - _lastTick;
                     _lastTick = Game.currentTime;
@@ -75,17 +94,28 @@
                     Game.drawItems( Game.opponents );
                     Game.drawItems( Game.debris );
 
-                    if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < 3 && ! Game.gameOver ) {
+                    if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && ! Game.gameOver ) {
                         Game.spawnOpponent();
                         Game.nextOpponentTime = Game.currentTime + 5000;
                     }
                 }
 
                 Game.start = function(){
+                    console.log( "Game.start()" );
                     _intervalId = setInterval(Game.run, _timeStep);
                 }
                 Game.stop = function() {
                     clearInterval( _intervalId );
+                }
+                Game.pause = function() {
+                    console.log("Game.pause()");
+                    console.log("paused: "+Game.paused);
+                    if ( Game.paused ) {
+                        Game.start();
+                    } else { 
+                        Game.stop();
+                    }
+                    Game.paused = !Game.paused;
                 }
                 Game.respawnPlayer = function () {
                     // wait 1 sec
@@ -130,11 +160,11 @@
                 Game.flyOpponents = function () {
                     for ( let opponent of Game.opponents ) {
                         let radToPlayer = Math.atan2( playerShip.y - opponent.y, playerShip.x - opponent.x );
-                        // Get angle diff of angle to player vs opponent's facing
+                        // Get angle diff: opponent-to-player angle vs opponent's facing
                         let deg = degDiff( radToDeg( radToPlayer ), opponent.rotation );
                         if ( Math.abs(deg) < 90 ) {
                             opponent.thrust();
-                            if ( Math.abs(deg) < 10 ) {
+                            if ( Math.abs(deg) < 5 ) {
                                 opponent.shoot();
                             }
                         }
@@ -150,7 +180,6 @@
                     let x = canvas.width * Math.random();
                     let y = canvas.height * Math.random();
                     let opponentShip = new Ship(20,30,x,y,0);
-                    // Game.opponents.push(opponentShip);
                     opponentShip.myArray = Game.opponents;
                 }
                 
@@ -158,6 +187,12 @@
                     for ( let A of groupA ) {
                         for ( let B of groupB ) {
                             if ( Game.checkCollision ( A, B ) ) {
+                                // console.log("A.value:",A.value);
+                                // console.log("B.value: ",B.value);
+                                // console.log(A);
+                                // console.log(B);
+                                Game.addPoints(A.value);
+                                Game.addPoints(B.value);
                                 A.kill();
                                 Game.explode(B.x,B.y);
                                 B.kill();
@@ -172,6 +207,12 @@
                     let hitTime = circleSweepTest( A, B );
                     let hit = hitTime <= 1 && hitTime >= 0;
                     return hit;
+                }
+                Game.addPoints = function( value ) {
+                    console.log("addpoints "+value);
+                    console.log("Game.points: "+Game.score);
+                    Game.score += value;
+                    _pointField.innerHTML = Game.score;
                 }
                 Game.explode = function(x,y) {
                     for ( let i = 0; i < 40; i++ ) {
@@ -218,6 +259,12 @@
                     Game.keys[keyCode] = { name : name, isDown : false, downFunc : downFunc, upFunc : upFunc == undefined ? null : upFunc };
                 }
                 Game.keyDown = function ( keycode ) {
+                    if ( keycode === 80 ) {
+                        // 'p' toggle pause
+                        // this is special case because
+                        // paused game doesn't execute Game.checkKeys()
+                        Game.pause();
+                    }
                     if ( Game.keys[keycode] ) {
                         // if ( Game.keys[keycode].downFunc != undefined ) {
                         //     Game.keys[keycode].downFunc();
@@ -249,19 +296,21 @@
             ============================================
             */
             class GameElement {
-                constructor () {
+                constructor ( w, h, x, y, rot ) {
                     console.log("GameElement.constructor()")
-                }
-                init ( x, y, rot, w, h ) {
-                    console.log("GameElement.init()")
+                    
+                    // init
+                    this._strokeColor = Game.strokeColor;
                     this._myArray = null;
                     this._x = x ? x : 0;
                     this._y = y ? y : 0;
                     this._rot = rot ? rot : 0;
                     this._width = w ? w : 0;
                     this._height = h ? h : 0;
+                    this._value = 0;
                 }
                 predraw () {
+                    // rotate and translate
                     ctx.translate( this.x, this.y );
                     const radian = degToRad( this._rot );
                     ctx.rotate( radian );
@@ -276,6 +325,7 @@
                     ctx.translate( -this.x, -this.y );
                 }
                 move () {
+                    // un-rotate and un-translate
                     this.x += this.xspeed;
                     this.y += this.yspeed;
                 }
@@ -288,6 +338,10 @@
                     }
                     // Kill me
                     delete this;
+                }
+
+                set strokeColor (value) {
+                    this._strokeColor = value;
                 }
 
                 get x () {
@@ -357,44 +411,12 @@
                 get myArray () {
                     return this._myArray;
                 }
-            }
 
-
-            /*          
-            ============================================
-
-                        TRIANGLE CLASS
-
-            ============================================
-            */
-            class Triangle extends GameElement {
-                constructor ( width, height, x, y, rot ) {
-                    console.log("Triangle.constructor()")
-                    super();
-                    super.init(x,y,rot,width,height);
-                    this.init();
-                }
-                init () {
-                    console.log("Triangle.init()")
-                    this._strokeColor = Game.strokeColor;
-                }
-                draw () {
-                    // Draw Triangle
-                    ctx.strokeStyle = this._strokeColor;
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-
-                    ctx.moveTo( this.height*0.5, 0 );
-                    ctx.lineTo( -this.height*0.5, -this.width * 0.5 );
-                    ctx.lineTo( -this.height *0.5, this.width*0.5 );
-                    ctx.lineTo( this.height*0.5, 0 );
-
-                    ctx.stroke();
-                }
-                set strokeColor (value) {
-                    this._strokeColor = value;
+                get value () {
+                    return this._value;
                 }
             }
+
 
             /*
             ============================================
@@ -403,15 +425,12 @@
 
             ============================================
             */
-            class Ship extends Triangle {
-                constructor(w,h,x,y,rot) {
+            class Ship extends GameElement {
+                constructor( w, h, x, y, rot ) {
                     console.log("Ship.constructor()")
-                    super (w,h,x,y,rot);
-                    this.init();
-                }
-                init () {
-                    console.log("Ship.init()")
-                    super.init();
+                    super ( w,h,x,y,rot );
+                    // init
+                    this._value = 2;
                     this._lastShotTime = 0;
                     this._liveShots = 0;
                     this._maxShots = 4;
@@ -424,7 +443,17 @@
                 }
                 draw () {
                     this.predraw();
-                    super.draw();
+                    // Draw Triangle
+                    ctx.strokeStyle = this._strokeColor;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+
+                    ctx.moveTo( this.height*0.5, 0 );
+                    ctx.lineTo( -this.height*0.5, -this.width * 0.5 );
+                    ctx.lineTo( -this.height *0.5, this.width*0.5 );
+                    ctx.lineTo( this.height*0.5, 0 );
+
+                    ctx.stroke();
 
                     if ( this._thrust > 0 ) {
                         // Draw thrust
@@ -508,6 +537,7 @@
                     this._maxShots = 6;
                     this._shotFrequency = 80;
                     this._shotPower = 12;
+                    this._value = -1;
                 }
                 draw () {
                     if ( this._alive ) {
@@ -547,14 +577,12 @@
             class Shot extends GameElement {
                 constructor (x, y, xspeed, yspeed, ship) {
                     super();
+                    // init
                     this.x = x;
                     this.y = y;
                     this.xspeed = xspeed;
                     this.yspeed = yspeed;
                     this.myShip = ship;
-                    this.init();
-                }
-                init() {
                     this._startTime = Game.currentTime;
                     this._lifeSpan = 2000;
                     this.width = 5;
@@ -563,7 +591,7 @@
                 move () {
                     super.move();
                     
-                    this._totalDistance += hypotenuse( this.xspeed, this.yspeed );
+                    // this._totalDistance += hypotenuse( this.xspeed, this.yspeed );
                     if ( Game.currentTime >= this._startTime + this._lifeSpan ) {
                         this.kill();
                     }
@@ -576,8 +604,8 @@
                     ctx.fill();
                 }
                 kill () {
-                    super.kill();
                     this.myShip.liveShots --;
+                    super.kill();
                 }
             }
 
@@ -597,9 +625,6 @@
                     this.xspeed = xspeed;
                     this.yspeed = yspeed;
                     this.width = this.height = diameter;
-                }
-                init () {
-
                 }
                 move () {
                     super.move();
@@ -666,7 +691,13 @@
             function degDiff (deg2, deg1) {
                 // console.log("degDif("+deg1+", "+deg2+")")
                 // console.log("diff: "+(deg2%180 - deg1%180))
-                return deg2%180 - deg1%180;
+                // return deg2%180 - deg1%180;
+                let diff = deg2 - deg1;
+                diff = mod( (diff + 180), 360 ) -180; // is (diff+180) % 360
+                function mod (a,n) {
+                    return a - Math.floor(a/n) * n;
+                }
+                return diff;
             }
 
             function circleSweepTest( sprite1, sprite2 ) {
@@ -688,7 +719,7 @@
                 D = Math.pow( sprite1.x, 2 ) + Math.pow( sprite1.y, 2 ) - Math.pow( sprite1.width*0.5, 2 ) - 2 * sprite1.x * sprite2.x + Math.pow( sprite2.x, 2 ) - 2 * sprite1.y * sprite2.y + Math.pow( sprite2.y, 2 ) - 2 * sprite1.width*0.5 * sprite2.width*0.5 - Math.pow( sprite2.width*0.5, 2 );
                 DISC = Math.pow( (-2 * B), 2 ) - 4 * C * D;
 
-                /* If the discriminent if non negative, a collision will occur and * 
+                /* If the discriminent is non negative, a collision will occur and * 
                 * we must compare the time to our current time of collision. We   * 
                 * udate the time if we find a collision that has occurd earlier   * 
                 * than the previous one.                                          */ 
@@ -713,13 +744,14 @@
             Game.setKey ( "thrust", 93, () => playerShip.thrust() );
             Game.setKey ( "thrust", 91, () => playerShip.thrust() );
             Game.setKey ( "fire", 32, () => playerShip.shoot() );
+            // Game.setKey ( "pause", 80, Game.pause );
 
-            $(document.body).keydown( function(e) {
+            document.addEventListener( "keydown",  function(e) {
                 console.log("keydown: "+e.which);
                 Game.keyDown(e.which);
                 e.preventDefault();
             });
-            $(document.body).keyup( function(e) {
+            document.addEventListener( "keyup", function(e) {
                 Game.keyUp(e.which);
                 e.preventDefault();
             })
