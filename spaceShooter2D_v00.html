@@ -12,10 +12,13 @@
     <style>
         body {
             background-color: #333;
+            background-image: url('images/space_tile_720.jpg');
             margin: 0;
             padding: 0;
         }
         #myCanvas {
+            position: absolute;
+            top: 0;
             border: 1px solid grey;
         }
         #score {
@@ -73,27 +76,30 @@
                     _lastTick = Game.currentTime;
                     
                     // Move Everything
-                    Game.moveItems( Game.shots );
-                    Game.moveItems( Game.opponents );
-                    Game.moveItems( Game.debris );
+                    Game.moveGamePieces( Game.shots );
+                    Game.moveGamePieces( Game.opponents );
+                    Game.moveGamePieces( Game.debris );
                     // Check Collisions
                     Game.checkCollisions( Game.shots, Game.opponents );
                     if ( playerShip.alive ) {
                         // Check Input
                         Game.checkKeys();
                         playerShip.move();
+                        Game.scrollBackground();
                         Game.flyOpponents();
                         Game.keepInBounds(playerShip);
                         Game.checkCollisions( [playerShip], Game.shots );
-                        Game.checkCollisions( [playerShip], Game.opponents );      
+                        Game.checkCollisions( [playerShip], Game.opponents );   
+                        
                     }
                     
                     // Do the drawing
                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
                     playerShip.draw();
-                    Game.drawItems( Game.shots );
-                    Game.drawItems( Game.opponents );
-                    Game.drawItems( Game.debris );
+                    Game.drawGamePieces( Game.shots );
+                    Game.drawGamePieces( Game.opponents );
+                    Game.drawGamePieces( Game.debris );
+                    
 
                     if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && ! Game.gameOver ) {
                         Game.spawnOpponent();
@@ -127,7 +133,7 @@
                 Game.spawnPlayer = function () {
                     // select position
                     let x = Math.random() * canvas.width;
-                    let y = Math.random() * canvas.width;
+                    let y = Math.random() * canvas.height;
                     let duration = 1500;
                     _timeoutId = setTimeout( function() {
                         // show Player at x/y
@@ -147,13 +153,13 @@
                         element.y += canvas.height;
                     }   
                 }
-                Game.moveItems = function ( ar ) {
+                Game.moveGamePieces = function ( ar ) {
                     for ( let item of ar ) {
                         item.move();
                         Game.keepInBounds( item );
                     }
                 }
-                Game.drawItems = function ( ar ) {
+                Game.drawGamePieces = function ( ar ) {
                     for ( let item of ar ) {
                         item.draw();
                     }
@@ -252,6 +258,21 @@
                         let debris = new Debris(x,y,xspeed,yspeed,diameter,dur, Game.playerColor);
                         debris.myArray = Game.debris;
                     }
+                }
+
+                Game.scrollBackground = function ( ) {
+                    // bg tile is 720x720
+                    // offset bg tile based on playerShip position
+                    const tileSize = 720;
+                    const centerX = canvas.width * 0.5;
+                    const centerY = canvas.height * 0.5;
+                    const playerOffsetX = ( playerShip.x - centerX ) / centerX; // -1 to 1
+                    const playerOffsetY = ( playerShip.y - centerY ) / centerY; // -1 to 1
+                    const bgX = -(tileSize * playerOffsetX);
+                    const bgY = -(tileSize * playerOffsetY);
+                    document.body.style.backgroundPosition = bgX+"px "+bgY+"px";
+                    // background-position: 20px 10px;
+
                 }
 
                 Game.checkKeys = function () {
@@ -677,6 +698,9 @@
             ============================================
             */
             const canvas = document.getElementById('myCanvas');
+            let windowDims = getWindowDimensions();
+            canvas.width = windowDims.width;
+            canvas.height = windowDims.height;
             const ctx = canvas.getContext('2d');
             let playerShip = new PlayerShip(10,20,100,100,0);
             Game.spawnOpponent();
@@ -715,15 +739,25 @@
             }
 
             function degDiff (deg2, deg1) {
-                // console.log("degDif("+deg1+", "+deg2+")")
-                // console.log("diff: "+(deg2%180 - deg1%180))
-                // return deg2%180 - deg1%180;
+                // returns signed smallest difference between 2 angles
+                // got this formula from Stack Overflow:
+                // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
                 let diff = deg2 - deg1;
                 diff = mod( (diff + 180), 360 ) -180; // is (diff+180) % 360
                 function mod (a,n) {
                     return a - Math.floor(a/n) * n;
                 }
                 return diff;
+            }
+
+            function getWindowDimensions () {
+                var w = window,
+                d = document,
+                e = d.documentElement,
+                g = d.getElementsByTagName('body')[0],
+                x = w.innerWidth || e.clientWidth || g.clientWidth,
+                y = w.innerHeight|| e.clientHeight|| g.clientHeight;
+                return( {width:x,height:y} );
             }
 
             function circleSweepTest( sprite1, sprite2 ) {
