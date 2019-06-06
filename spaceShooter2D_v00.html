@@ -8,7 +8,12 @@
   src="http://code.jquery.com/jquery-3.3.1.min.js"
   integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
   crossorigin="anonymous"></script> -->
-
+    <script
+    src="js/colorUtilities.js"
+    ></script>
+    <!-- <script
+    src="js/TweenLite.min.js"
+    ></script> -->
     <style>
         body {
             background-color: #333;
@@ -34,7 +39,7 @@
 </head>
 <body>
     <p style="color: #CCC">
-        turn: l/r arrows, thrust: up arrow, fire: spacebar
+        TURN: l/r arrows, THRUST: up arrow, FIRE: spacebar
     </p>
     <span id="score">
         00
@@ -60,27 +65,38 @@
                 Game.shots = [];
                 Game.opponents = [];
                 Game.debris = [];
+                Game.blackHoles = [];
                 Game.currentTime = (new Date).getTime();
+                Game.nextBlackHoleTime = Game.currentTime + 10000;
                 Game.nextOpponentTime = Game.currentTime + 5000;
                 Game.maxOpponents = 1;
                 Game.gameOver = false;
                 Game.score = 0;
                 Game.paused = false;
+                Game.msElapsed = 0; // duration of current frame
+                Game.pausedDuration = 0;
+                Game.frameInterpolation = 1;
+                
 
                 Game.run = function() {
                     //
                     // Main Game Loop
                     //
                     Game.currentTime = (new Date).getTime();
-                    let elapsed = Game.currentTime - _lastTick;
+                    Game.msElapsed = Game.currentTime - _lastTick + Game.pausedDuration;
                     _lastTick = Game.currentTime;
+                    Game.pausedDuration = 0;
+                    Game.frameInterpolation = Game.msElapsed / Game.timeStep;
                     
                     // Move Everything
                     Game.moveGamePieces( Game.shots );
                     Game.moveGamePieces( Game.opponents );
                     Game.moveGamePieces( Game.debris );
+                    Game.moveGamePieces( Game.blackHoles );
                     // Check Collisions
                     Game.checkCollisions( Game.shots, Game.opponents );
+                    let contractingBlackHoles = Game.blackHoles.filter((x)=>x.isContracting);
+                    Game.checkCollisions( contractingBlackHoles, Game.opponents );
                     if ( playerShip.alive ) {
                         // Check Input
                         Game.checkKeys();
@@ -89,27 +105,39 @@
                         Game.flyOpponents();
                         Game.keepInBounds(playerShip);
                         Game.checkCollisions( [playerShip], Game.shots );
-                        Game.checkCollisions( [playerShip], Game.opponents );   
+                        Game.checkCollisions( [playerShip], Game.opponents );
+                        Game.checkCollisions( contractingBlackHoles, [playerShip] );
                         
                     }
                     
                     // Do the drawing
-                    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-                    playerShip.draw();
+                    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                    Game.drawGamePieces( Game.blackHoles );
+                    if ( playerShip.alive ) playerShip.draw();
                     Game.drawGamePieces( Game.shots );
                     Game.drawGamePieces( Game.opponents );
                     Game.drawGamePieces( Game.debris );
                     
+                    
 
-                    if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && ! Game.gameOver ) {
+                    if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && !Game.gameOver ) {
                         Game.spawnOpponent();
                         Game.nextOpponentTime = Game.currentTime + 5000;
+                    }
+                    if ( Game.currentTime > Game.nextBlackHoleTime && !Game.gameOver ) {
+                        let TempHole = new BlackHole();
+                        TempHole.myArray = Game.blackHoles;
+                        Game.nextBlackHoleTime = Game.currentTime + 10000;
+                    }
+                    if ( !Game.paused ) {
+                        window.requestAnimationFrame( Game.run );
                     }
                 }
 
                 Game.start = function(){
                     console.log( "Game.start()" );
-                    _intervalId = setInterval(Game.run, _timeStep);
+                    window.requestAnimationFrame(Game.run);
+                    // _intervalId = setInterval(Game.run, _timeStep);
                 }
                 Game.stop = function() {
                     clearInterval( _intervalId );
@@ -193,6 +221,7 @@
                 Game.checkCollisions = function ( groupA, groupB ) {
                     for ( let A of groupA ) {
                         for ( let B of groupB ) {
+                            let BH = false;
                             if ( Game.checkCollision ( A, B ) ) {
                                 // console.log("A.value:",A.value);
                                 // console.log("B.value: ",B.value);
@@ -209,8 +238,8 @@
                 }
                 Game.checkCollision = function ( A, B ) {
                     // Does center of A move through circle of B this frame? 
-                    let Ax0 = A.x-A.xspeed,
-                        Ax1 = A.x;
+                    // let Ax0 = A.x-A.xspeed,
+                    //     Ax1 = A.x;
                     let hitTime = circleSweepTest( A, B );
                     let hit = hitTime <= 1 && hitTime >= 0;
                     return hit;
@@ -337,6 +366,7 @@
                     this._width = w ? w : 0;
                     this._height = h ? h : 0;
                     this._value = 0;
+                    this._xspeed = this._yspeed = 0;
                 }
                 predraw () {
                     // rotate and translate
@@ -355,8 +385,8 @@
                 }
                 move () {
                     // un-rotate and un-translate
-                    this.x += this.xspeed;
-                    this.y += this.yspeed;
+                    this.x += this.xspeed * Game.frameInterpolation;
+                    this.y += this.yspeed * Game.frameInterpolation;
                 }
                 kill () {
                     // console.log("kill element");
@@ -396,7 +426,7 @@
                 }
 
                 get width () {
-                    return this._width;
+                    return this._width || this._diameter;
                 }
                 set width ( value ) {
                     if ( typeof value == 'number' ) {
@@ -495,10 +525,12 @@
                     this.postdraw();
                 }
                 turnRight ( value ) {
-                    this.rotation += value ? value : 5;
+                    let rot = value ? value : 5;
+                    this.rotation += rot * Game.frameInterpolation;
                 }
                 turnLeft ( value ) {
-                    this.rotation -= value ? value : 5;
+                    let rot = value ? value : 5;
+                    this.rotation -= rot * Game.frameInterpolation;
                 }
                 shoot () {
                     if ( this.liveShots < this._maxShots && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
@@ -524,20 +556,17 @@
                     let ythrust = Math.sin(radian)*this._thrust;
                     this.xspeed = (this.xspeed * 15 + xthrust) / 16;
                     this.yspeed = (this.yspeed * 15 + ythrust) / 16;
-                    if ( this.rotation > 43 && this.rotation < 58 ) {
-                        console.log( `thrust: ${this._thrust}`);
-                        console.log(`xythrust: ${xthrust}, ${ythrust}`);
-                        console.log(`xyspeed: ${this.xspeed}, ${this.yspeed}`);
-                    }
                 }
                 move () {
                     super.move();
                     // Deceleration
                     if ( this._thrust > 0 ) {
-                        this._thrust -= 1;
+                        this._thrust -= 1 * Game.frameInterpolation;
                     }
-                    this.xspeed *= 0.99;
-                    this.yspeed *= 0.99;
+                    // this.xspeed *= 0.99;
+                    this.xspeed -= this.xspeed * 0.01 * Game.frameInterpolation;
+                    // this.yspeed *= 0.99;
+                    this.yspeed -= this.yspeed * 0.01 * Game.frameInterpolation;
                     if ( Math.abs(this.xspeed) < 0.1 && Math.abs(this.yspeed) < 0.1 ) {
                         this.xspeed = this.yspeed = 0;
                     }
@@ -618,24 +647,36 @@
                     this.xspeed = xspeed;
                     this.yspeed = yspeed;
                     this.myShip = ship;
-                    this._startTime = Game.currentTime;
+                    // this._startTime = Game.currentTime;
                     this._lifeSpan = 2000;
+                    this._msAge = 0;
                     this.width = 5;
                     this.height = 5;
+                    this._fillColor = "#FFFFFF";
                 }
                 move () {
                     super.move();
                     
                     // this._totalDistance += hypotenuse( this.xspeed, this.yspeed );
-                    if ( Game.currentTime >= this._startTime + this._lifeSpan ) {
+                    this._msAge += Game.msElapsed;
+                    if ( this._msAge >= this._lifeSpan ) {
                         this.kill();
                     }
+                    // if ( Game.currentTime >= this._startTime + this._lifeSpan ) {
+                    //     this.kill();
+                    // }
                 }
                 draw () {
                     // Draw a circle
+                    // glow
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.width, 0, 2 * Math.PI);
+                    ctx.fillStyle = "rgba( 255, 0, 0, 0.5 )"; // hexToRgbaString( this._fillColor, 0.5 );
+                    ctx.fill();
+                    // shot
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.width * 0.5, 0, 2 * Math.PI);
-                    ctx.fillStyle = Game.fillColor;
+                    ctx.fillStyle = this._fillColor;
                     ctx.fill();
                 }
                 kill () {
@@ -667,8 +708,10 @@
                     super.move();
                     Game.keepInBounds(this);
                     if ( this.decelerate ) {
-                        this.xspeed *= 0.97;
-                        this.yspeed *= 0.97;
+                        // this.xspeed *= 0.97;
+                        this.xspeed -= this.xspeed * 0.03 * Game.frameInterpolation;
+                        // this.yspeed *= 0.97;
+                        this.yspeed -= this.yspeed * 0.03 * Game.frameInterpolation;
                     }
                     if ( Game.currentTime >= this._killTime ) {
                         this.kill();
@@ -689,6 +732,93 @@
                 }
 
             }
+            /*
+            ============================================
+
+                        BLACK HOLE CLASS
+
+            ============================================
+            */
+            class BlackHole extends GameElement {
+                constructor ( x, y ) {
+                    // console.log("new BlackHole()");
+                    super();
+                    this.x = x || Math.random() * canvas.width;
+                    this.y = y || Math.random() * canvas.height;
+                    this._minDiameter = 10;
+                    this._maxDiameter = 400;
+                    this._diameter = this.minDiameter;
+                    this._startColor = '#332277';
+                    this._endColor = "#5566CC";
+                    this._fillColor = this._startColor;
+                    this._age = 0;
+                    this._maxAge = 8000; //ms
+                    this._contracting = false;
+                    this._startTime = (new Date()).getTime();
+                }
+                draw () {                    
+                    // Draw a circle
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this._diameter * 0.5, 0, 2 * Math.PI);
+                    // ctx.fillStyle = this._fillColor;
+                    let innerRadius = 0.1 * this._diameter;
+                    let color2;
+                    if ( this.isContracting ) {
+                        color2 = this._endColor;
+                        innerRadius = 0.4 * this._diameter;
+                    } else {
+                        color2 = mixHexColors(this._startColor, this._endColor, this.lifePercent*100); //;
+                        innerRadius += this.lifePercent * (0.35*this.width);
+                    }
+                    var gradient = ctx.createRadialGradient(this.x,this.y,innerRadius, this.x,this.y,this.width*0.5);
+
+                    // Add three color stops
+                    gradient.addColorStop(0, '#000000');
+                    // gradient.addColorStop(0.01, '#ff0000');
+                    gradient.addColorStop(.9, color2);
+
+                    // Set the fill style and draw a rectangle
+                    ctx.fillStyle = gradient;
+                    
+                    ctx.fill();
+                    // ctx.strokeStyle = "#330099";
+                    // ctx.stroke();
+                }
+                move () {
+                    if ( this.isContracting ) {
+                        this._diameter -= 50 * Game.frameInterpolation;
+                        if ( this._diameter <= 20 ) {
+                            super.kill();
+                            this.kill();
+                        }
+                    } else {
+                        this._age = (new Date()).getTime() - this._startTime;
+                        if ( this._age >= this._maxAge ) {
+                            this.contract();
+                        } else {
+                            this._diameter = this._minDiameter + (this._maxDiameter - this._minDiameter) * this.lifePercent;
+                            // this._fillColor = mixHexColors(this._startColor, this._endColor, lifePercent*100);
+                        }
+                    }
+                }
+                contract () {
+                    // turn into black hole,
+                    // destroying everything within its circle
+                    this._contracting = true;
+                    this._fillColor = "#000000";
+                    this._endColor = "#990022";
+                }
+                kill () {
+                    // Do nothing
+                    // Call super.kill() when I've contracted
+                }
+                get isContracting () {
+                    return this._contracting;
+                }
+                get lifePercent () {
+                    return this._age / this._maxAge;
+                }
+            }
 
             /*          
             ============================================
@@ -704,7 +834,6 @@
             const ctx = canvas.getContext('2d');
             let playerShip = new PlayerShip(10,20,100,100,0);
             Game.spawnOpponent();
-            
             Game.start();
 
             // const triangle1 = new Triangle( 10, 20 );
@@ -762,6 +891,10 @@
 
             function circleSweepTest( sprite1, sprite2 ) {
                 // circ1 and circ2 are Unit objects
+                if ( intersectionTest ( sprite1, sprite2 ) ) {
+                    // they are already intersecting
+                    return 0;
+                }
                 // algorithm from:  http://compsci.ca/v3/viewtopic.php?t=14897
                 let Axv = sprite1.xspeed,
                     Ayv = sprite1.yspeed,
@@ -788,6 +921,14 @@
                     t = Math.min (Math.min (t, 0.5 * (2 * B - Math.sqrt (DISC)) / A), 0.5 * (2 * B + Math.sqrt (DISC)) / A);
                 }
                 return t;
+            }
+
+            function intersectionTest ( sprite1, sprite2 ) {
+                const xDiff = sprite2.x - sprite1.x;
+                const yDiff = sprite2.y - sprite1.y;
+                const distSq = xDiff*xDiff + yDiff * yDiff;
+                const radius = (sprite2.width + sprite1.width) * 0.5;
+                return distSq <= radius * radius;
             }
 
             /*
