@@ -74,7 +74,7 @@
                 Game.score = 0;
                 Game.paused = false;
                 Game.msElapsed = 0; // duration of current frame
-                Game.pausedDuration = 0;
+                // Game.pausedDuration = 0;
                 Game.frameInterpolation = 1;
                 
 
@@ -83,9 +83,9 @@
                     // Main Game Loop
                     //
                     Game.currentTime = (new Date).getTime();
-                    Game.msElapsed = Game.currentTime - _lastTick + Game.pausedDuration;
+                    Game.msElapsed = Game.currentTime - _lastTick; //+ Game.pausedDuration;
                     _lastTick = Game.currentTime;
-                    Game.pausedDuration = 0;
+                    // Game.pausedDuration = 0;
                     Game.frameInterpolation = Game.msElapsed / Game.timeStep;
                     
                     // Move Everything
@@ -136,21 +136,29 @@
 
                 Game.start = function(){
                     console.log( "Game.start()" );
+                    Game.paused = false;
+                    let pausedDuration = (new Date).getTime() - _lastTick;
+                    _lastTick += pausedDuration;
+                    console.log("pausedDuration", pausedDuration);
                     window.requestAnimationFrame(Game.run);
                     // _intervalId = setInterval(Game.run, _timeStep);
                 }
                 Game.stop = function() {
-                    clearInterval( _intervalId );
+                    console.log("Game.stop()");
+                    Game.paused = true;
+                    // clearInterval( _intervalId );
+                    // Stop animation frame
                 }
                 Game.pause = function() {
-                    console.log("Game.pause()");
-                    console.log("paused: "+Game.paused);
+                    // console.log("Game.pause()");
+                    // console.log("paused: "+Game.paused);
                     if ( Game.paused ) {
+                        // Unpause 
                         Game.start();
                     } else { 
+                        // Pause
                         Game.stop();
                     }
-                    Game.paused = !Game.paused;
                 }
                 Game.respawnPlayer = function () {
                     // wait 1 sec
@@ -245,8 +253,8 @@
                     return hit;
                 }
                 Game.addPoints = function( value ) {
-                    console.log("addpoints "+value);
-                    console.log("Game.points: "+Game.score);
+                    // console.log("addpoints "+value);
+                    // console.log("Game.points: "+Game.score);
                     Game.score += value;
                     _pointField.innerHTML = Game.score;
                 }
@@ -355,7 +363,7 @@
             */
             class GameElement {
                 constructor ( w, h, x, y, rot ) {
-                    console.log("GameElement.constructor()")
+                    // console.log("GameElement.constructor()")
                     
                     // init
                     this._strokeColor = Game.strokeColor;
@@ -486,7 +494,7 @@
             */
             class Ship extends GameElement {
                 constructor( w, h, x, y, rot ) {
-                    console.log("Ship.constructor()")
+                    // console.log("Ship.constructor()")
                     super ( w,h,x,y,rot );
                     // init
                     this._value = 2;
@@ -695,7 +703,8 @@
             class Debris extends GameElement {
                 constructor (x,y,xspeed,yspeed,diameter,lifespan,fillColor) {
                     super();
-                    this._killTime = Game.currentTime + lifespan;
+                    this._age = 0;
+                    this._lifespan = lifespan;
                     this.x = x;
                     this.y = y;
                     this.xspeed = xspeed;
@@ -713,7 +722,8 @@
                         // this.yspeed *= 0.97;
                         this.yspeed -= this.yspeed * 0.03 * Game.frameInterpolation;
                     }
-                    if ( Game.currentTime >= this._killTime ) {
+                    this._age += Game.msElapsed;
+                    if ( this._age >= this._lifespan ) {
                         this.kill();
                     }
                 }
@@ -754,7 +764,7 @@
                     this._age = 0;
                     this._maxAge = 8000; //ms
                     this._contracting = false;
-                    this._startTime = (new Date()).getTime();
+                    // this._startTime = Game.currentTime;
                 }
                 draw () {                    
                     // Draw a circle
@@ -786,13 +796,16 @@
                 }
                 move () {
                     if ( this.isContracting ) {
+                        // Contract
                         this._diameter -= 50 * Game.frameInterpolation;
                         if ( this._diameter <= 20 ) {
                             super.kill();
                             this.kill();
                         }
                     } else {
-                        this._age = (new Date()).getTime() - this._startTime;
+                        // Grow
+                        // this._age = (new Date()).getTime() - this._startTime;
+                        this._age += Game.msElapsed;
                         if ( this._age >= this._maxAge ) {
                             this.contract();
                         } else {
@@ -817,6 +830,27 @@
                 }
                 get lifePercent () {
                     return this._age / this._maxAge;
+                }
+            }
+
+             /*
+            ============================================
+
+                        PRIZE CLASS
+
+            ============================================
+            */
+            class Prize extends GameElement {
+                constructor ( x, y ) {
+                    // console.log("new Prize()");
+                    super();
+                    this.x = x || Math.random() * canvas.width;
+                    this.y = y || Math.random() * canvas.height;
+                    this._diameter = 20;
+                    this._ringColor = '#5555FF';
+                    this._dotColor = "#55FF55";
+                    this._age = 0;
+                    this._maxAge = 8000; //ms
                 }
             }
 
@@ -948,7 +982,7 @@
             // Game.setKey ( "pause", 80, Game.pause );
 
             document.addEventListener( "keydown",  function(e) {
-                console.log("keydown: "+e.which);
+                // console.log("keydown: "+e.which);
                 Game.keyDown(e.which);
                 e.preventDefault();
             });
