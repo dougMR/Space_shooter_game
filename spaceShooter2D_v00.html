@@ -56,7 +56,7 @@
                 let _intervalId = null;
                 let _fps = 30;
                 let _lastTick = (new Date).getTime();
-                let _timeStep = 1000/_fps;
+                let _timeStep = 1000/_fps; // target length of a frame
                 let _pointField = document.getElementById("score");
                 Game.timeStep = _timeStep;
                 Game.strokeColor = "#CCCCCC";
@@ -66,27 +66,26 @@
                 Game.opponents = [];
                 Game.debris = [];
                 Game.blackHoles = [];
-                Game.currentTime = (new Date).getTime();
+                Game.currentTime = 0;//(new Date).getTime();
                 Game.nextBlackHoleTime = Game.currentTime + 10000;
                 Game.nextOpponentTime = Game.currentTime + 5000;
                 Game.maxOpponents = 1;
                 Game.gameOver = false;
                 Game.score = 0;
-                Game.paused = false;
-                Game.msElapsed = 0; // duration of current frame
-                // Game.pausedDuration = 0;
-                Game.frameInterpolation = 1;
-                
+                _paused = false;
+                Game.msThisFrame = 0; // duration of current frame
+                // _pausedDuration = 0;
+                Game.frameInterpolation = 1;                
 
                 Game.run = function() {
                     //
                     // Main Game Loop
                     //
-                    Game.currentTime = (new Date).getTime();
-                    Game.msElapsed = Game.currentTime - _lastTick; //+ Game.pausedDuration;
-                    _lastTick = Game.currentTime;
-                    // Game.pausedDuration = 0;
-                    Game.frameInterpolation = Game.msElapsed / Game.timeStep;
+                    let now = (new Date).getTime();
+                    Game.msThisFrame = now - _lastTick;
+                    _lastTick = now;
+                    Game.currentTime += Game.msThisFrame;
+                    Game.frameInterpolation = Game.msThisFrame / Game.timeStep; // % of a full frame
                     
                     // Move Everything
                     Game.moveGamePieces( Game.shots );
@@ -117,8 +116,6 @@
                     Game.drawGamePieces( Game.shots );
                     Game.drawGamePieces( Game.opponents );
                     Game.drawGamePieces( Game.debris );
-                    
-                    
 
                     if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && !Game.gameOver ) {
                         Game.spawnOpponent();
@@ -129,30 +126,33 @@
                         TempHole.myArray = Game.blackHoles;
                         Game.nextBlackHoleTime = Game.currentTime + 10000;
                     }
-                    if ( !Game.paused ) {
+                    if ( !_paused ) {
                         window.requestAnimationFrame( Game.run );
                     }
                 }
 
                 Game.start = function(){
                     console.log( "Game.start()" );
-                    Game.paused = false;
+                    _paused = false;
                     let pausedDuration = (new Date).getTime() - _lastTick;
-                    _lastTick += pausedDuration;
+                    _lastTick += pausedDuration - _timeStep;
                     console.log("pausedDuration", pausedDuration);
                     window.requestAnimationFrame(Game.run);
                     // _intervalId = setInterval(Game.run, _timeStep);
                 }
                 Game.stop = function() {
                     console.log("Game.stop()");
-                    Game.paused = true;
-                    // clearInterval( _intervalId );
-                    // Stop animation frame
+                    _paused = true;
+                }
+                Game.playSingleFrame = function(){
+                        Game.start();
+                        Game.stop();
+                        Game.run();
+                        // window.requestAnimationFrame(Game.run);
                 }
                 Game.pause = function() {
                     // console.log("Game.pause()");
-                    // console.log("paused: "+Game.paused);
-                    if ( Game.paused ) {
+                    if ( _paused ) {
                         // Unpause 
                         Game.start();
                     } else { 
@@ -231,10 +231,6 @@
                         for ( let B of groupB ) {
                             let BH = false;
                             if ( Game.checkCollision ( A, B ) ) {
-                                // console.log("A.value:",A.value);
-                                // console.log("B.value: ",B.value);
-                                // console.log(A);
-                                // console.log(B);
                                 Game.addPoints(A.value);
                                 Game.addPoints(B.value);
                                 A.kill();
@@ -246,15 +242,46 @@
                 }
                 Game.checkCollision = function ( A, B ) {
                     // Does center of A move through circle of B this frame? 
-                    // let Ax0 = A.x-A.xspeed,
-                    //     Ax1 = A.x;
                     let hitTime = circleSweepTest( A, B );
                     let hit = hitTime <= 1 && hitTime >= 0;
+
+                  /*  if ( hit ) {
+
+                        // Hit
+                        A.x += A.xspeed*hitTime;
+                        A.y += A.yspeed*hitTime; 
+                        B.x += B.xspeed*hitTime;
+                        B.y += B.yspeed*hitTime;
+
+                        if( Math.random()<0.5 ) { getCollisionPoint( A, B ); };
+                        var transferResults = transferMomentum( A, B );
+                        // var preHitV = A.velocity()+B.velocity();
+                        // console.log(transferResults);
+                        A.xspeed = ( transferResults.a.x ); //* (1-hitTime) );
+                        A.yspeed = ( transferResults.a.y ); // * (1-hitTime) );
+                        B.xspeed = ( transferResults.b.x ); // * (1-hitTime) );
+                        B.yspeed = ( transferResults.b.y ); // * (1-hitTime) );  
+
+                        A.move( A.xspeed* (1-hitTime), A.yspeed* (1-hitTime) );
+                        B.move( B.xspeed* (1-hitTime), B.yspeed* (1-hitTime) );
+
+                        // var postHitV = A.velocity() + B.velocity();
+                        // output( "before: "+preHitV+"<br>after: "+postHitV );
+                        var vol = Math.min(0.95, Math.max( 0, transferResults.p/30 ));
+                        if ( A == player || B == player ) {
+                            tinkle( vol );
+                            // console.log(transferResults.p/30);
+                        } else {
+                            vol = 0.6 * vol;
+                            vol = Math.min(0.5,vol);
+                            tinkle ( vol, 0 );
+                        }
+                        
+                    } */
+
                     return hit;
                 }
                 Game.addPoints = function( value ) {
-                    // console.log("addpoints "+value);
-                    // console.log("Game.points: "+Game.score);
                     Game.score += value;
                     _pointField.innerHTML = Game.score;
                 }
@@ -308,8 +335,6 @@
                     const bgX = -(tileSize * playerOffsetX);
                     const bgY = -(tileSize * playerOffsetY);
                     document.body.style.backgroundPosition = bgX+"px "+bgY+"px";
-                    // background-position: 20px 10px;
-
                 }
 
                 Game.checkKeys = function () {
@@ -330,6 +355,9 @@
                         // this is special case because
                         // paused game doesn't execute Game.checkKeys()
                         Game.pause();
+                    } else if ( keycode === 83 ) {
+                        // 's' play single frame
+                        Game.playSingleFrame();
                     }
                     if ( Game.keys[keycode] ) {
                         // if ( Game.keys[keycode].downFunc != undefined ) {
@@ -469,6 +497,10 @@
                     return this._yspeed;
                 }
 
+                get mass () {
+                    return 1;
+                }
+
                 set myArray ( value ) {
                     if ( Array.isArray( value) ) {
                         this._myArray = value;
@@ -507,6 +539,9 @@
                     this._yspeed = 0;
                     this._maxthrust = 10;
                     this._thrust = 0;
+                    this._shields = true;
+                    this._defaultWidth = w;
+                    this._shieldWidth = w * 2;
                 }
                 draw () {
                     this.predraw();
@@ -528,6 +563,14 @@
                         ctx.lineTo( -this.height*0.5, this.width * 0.2 );
                         ctx.lineTo( -this.height * 0.75, 0 );
                         ctx.lineTo( -this.height*0.5, -this.width*0.2 );
+                        ctx.stroke();
+                    }
+
+                    if ( this.shields ) {
+                        // Draw Shields
+                        ctx.beginPath();
+                        ctx.arc(0, 0, this._shieldWidth, 0, 2 * Math.PI);
+                        ctx.strokeStyle = "#FFFFFF";
                         ctx.stroke();
                     }
                     this.postdraw();
@@ -554,7 +597,6 @@
                         this.liveShots++;
                         this._lastShotTime = Game.currentTime;
                     }
-                    
                 }
                 thrust () {
                     this._thrust += 2;
@@ -591,7 +633,13 @@
                 get liveShots () {
                     return this._liveShots;
                 }
-                
+                set shields ( value ) {
+                    this._shields = !!value;
+                    this._width = this._shields ? this._shieldWidth : this._defaultWidth;
+                }
+                get shields () {
+                    return this._shields;
+                }
             }
 
             /*
@@ -655,24 +703,17 @@
                     this.xspeed = xspeed;
                     this.yspeed = yspeed;
                     this.myShip = ship;
-                    // this._startTime = Game.currentTime;
+                    this._startTime = Game.currentTime;
                     this._lifeSpan = 2000;
-                    this._msAge = 0;
                     this.width = 5;
                     this.height = 5;
                     this._fillColor = "#FFFFFF";
                 }
                 move () {
                     super.move();
-                    
-                    // this._totalDistance += hypotenuse( this.xspeed, this.yspeed );
-                    this._msAge += Game.msElapsed;
-                    if ( this._msAge >= this._lifeSpan ) {
+                    if ( Game.currentTime >= this._startTime + this._lifeSpan ) {
                         this.kill();
                     }
-                    // if ( Game.currentTime >= this._startTime + this._lifeSpan ) {
-                    //     this.kill();
-                    // }
                 }
                 draw () {
                     // Draw a circle
@@ -703,7 +744,7 @@
             class Debris extends GameElement {
                 constructor (x,y,xspeed,yspeed,diameter,lifespan,fillColor) {
                     super();
-                    this._age = 0;
+                    this._startTime = Game.currentTime;
                     this._lifespan = lifespan;
                     this.x = x;
                     this.y = y;
@@ -722,8 +763,7 @@
                         // this.yspeed *= 0.97;
                         this.yspeed -= this.yspeed * 0.03 * Game.frameInterpolation;
                     }
-                    this._age += Game.msElapsed;
-                    if ( this._age >= this._lifespan ) {
+                    if ( Game.currentTime >= this._startTime + this._lifespan ) {
                         this.kill();
                     }
                 }
@@ -761,10 +801,9 @@
                     this._startColor = '#332277';
                     this._endColor = "#5566CC";
                     this._fillColor = this._startColor;
-                    this._age = 0;
                     this._maxAge = 8000; //ms
                     this._contracting = false;
-                    // this._startTime = Game.currentTime;
+                    this._startTime = Game.currentTime;
                 }
                 draw () {                    
                     // Draw a circle
@@ -782,17 +821,14 @@
                     }
                     var gradient = ctx.createRadialGradient(this.x,this.y,innerRadius, this.x,this.y,this.width*0.5);
 
-                    // Add three color stops
+                    // Add color stops
                     gradient.addColorStop(0, '#000000');
                     // gradient.addColorStop(0.01, '#ff0000');
                     gradient.addColorStop(.9, color2);
 
-                    // Set the fill style and draw a rectangle
                     ctx.fillStyle = gradient;
                     
                     ctx.fill();
-                    // ctx.strokeStyle = "#330099";
-                    // ctx.stroke();
                 }
                 move () {
                     if ( this.isContracting ) {
@@ -804,13 +840,10 @@
                         }
                     } else {
                         // Grow
-                        // this._age = (new Date()).getTime() - this._startTime;
-                        this._age += Game.msElapsed;
-                        if ( this._age >= this._maxAge ) {
+                        if ( this.age >= this._maxAge ) {
                             this.contract();
                         } else {
                             this._diameter = this._minDiameter + (this._maxDiameter - this._minDiameter) * this.lifePercent;
-                            // this._fillColor = mixHexColors(this._startColor, this._endColor, lifePercent*100);
                         }
                     }
                 }
@@ -829,7 +862,10 @@
                     return this._contracting;
                 }
                 get lifePercent () {
-                    return this._age / this._maxAge;
+                    return this.age / this._maxAge;
+                }
+                get age () {
+                    return Game.currentTime - this._startTime;
                 }
             }
 
@@ -955,6 +991,37 @@
                     t = Math.min (Math.min (t, 0.5 * (2 * B - Math.sqrt (DISC)) / A), 0.5 * (2 * B + Math.sqrt (DISC)) / A);
                 }
                 return t;
+            }
+
+            function getCollisionPoint ( A, B ) {
+                // A and B are Unit objects
+                var Aradius = A.width;
+                var Bradius = B.width;
+                var collisionPointX = 
+                ((A.x * Bradius) + (B.x * Aradius)) / (Aradius + Bradius);
+    
+                var collisionPointY = 
+                ((A.y * Bradius) + (B.y * Aradius )) / (Aradius + Bradius);
+                return { x : collisionPointX, y : collisionPointY };
+            }
+
+            function transferMomentum( A, B ) {
+                // A and B are Unit objects at point of collision
+
+                // distance
+                var d = Math.sqrt ( Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y,2) );
+                // norm vector
+                var n = { x : (B.x - A.x) / d, y : (B.y - A.y) / d };
+                // momentum
+                var p = 2 * ( dot( {x : A.xv, y : A.yv}, n ) - dot( {x : B.xv, y : B.yv}, n) ) / (A.mass + B.mass);
+                // resultant vectors
+                var wAx = A.xv - p * B.mass * n.x;
+                var wAy = A.yv - p * B.mass * n.y;
+                var wBx = B.xv + p * A.mass * n.x;
+                var wBy = B.yv + p * A.mass * n.y;
+
+                return { a : { x : wAx, y : wAy }, b : { x : wBx, y : wBy }, p : (p*B.mass+p*A.mass) };
+
             }
 
             function intersectionTest ( sprite1, sprite2 ) {
