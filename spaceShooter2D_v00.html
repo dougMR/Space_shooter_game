@@ -222,54 +222,47 @@
                     let x = canvas.width * Math.random();
                     let y = canvas.height * Math.random();
                     let opponentShip = new Ship(20,30,x,y,0);
-                    opponentShip.shields = false;
+                    opponentShip.shieldsOn = false;
                     opponentShip.myArray = Game.opponents;
                 }
                 
                 Game.checkCollisions = function ( groupA, groupB ) {
-                    let Abounce = false,
-                        Bbounce = false;
                     for ( let A of groupA ) {
-                        Abounce = !!A.shields;
                         for ( let B of groupB ) {
-                            Bbounce = !!B.shields;
-                            if ( Game.checkCollision ( A, B, Abounce || Bbounce ) ) {
-                                if ( !Abounce ) {
-                                    Game.addPoints(A.value);
-                                    A.kill();
-                                    if ( Bbounce ) {
-                                        Game.explode(A.x, A.y);
-                                    }
-                                }
-                                if ( !Bbounce ) {
-                                    Game.addPoints(B.value);
-                                    Game.explode(B.x,B.y);
-                                    B.kill();
-                                }
+                            let hitTime = Game.checkCollision ( A, B );
+                            if ( hitTime <= 1 && hitTime >=0 ) {
+                                // hitTime is getting passed on to next function a lot
+                                Game.handleCollision( A, B, hitTime );
                             }
                         }
                     }
                 }
-                Game.handleCollision = function ( A, B ) {
-                    
-                }
-                Game.checkCollision = function ( A, B, bounce ) {
+                
+                Game.checkCollision = function ( A, B ) {
                     // Does center of A move through circle of B this frame? 
                     let hitTime = circleSweepTest( A, B );
                     let hit = hitTime <= 1 && hitTime >= 0;
-
-                    if ( hit && bounce ) {
-                        /* 
-                            If they collide, 
-                            move both to point of collision,
-                            update x/y speeds,
-                            move remainder of frame percent in new directions.
-                            Then, to prepare for moving, move both sprites one negative frame.  (x/y pos -= x/y speed)
-                        */
-                        
+                    return hitTime;
+                }
+                Game.handleCollision = function ( A, B, hitTime ) {
+                    // hitTime is # between 0 and 1 - at what percent of this frame move do they collide
+                    let Abounce = !!A.shieldsOn;
+                    let Bbounce = !!B.shieldsOn;
+                    if ( Abounce || Bbounce ) { 
                         Game.bounce ( A, B, hitTime );
                     }
-                    return hit;
+                    if ( !Abounce ) {
+                        Game.addPoints(A.value);
+                        A.kill();
+                        if ( Bbounce && ! (A instanceof BlackHole) ) {
+                            Game.explode(A.x, A.y, A.mass);
+                        }
+                    }
+                    if ( !Bbounce ) {
+                        Game.addPoints(B.value);
+                        Game.explode(B.x,B.y, B.mass);
+                        B.kill();
+                    }
                 }
                 Game.bounce = function ( A, B, hitTime ) {
                     // Move to touching
@@ -290,7 +283,8 @@
                     B.y += B.yspeed * (1-hitTime) * Game.frameInterpolation;
 
                     // Back up 1 frame distance
-                    // Because movment happens after checkCollision()
+                    // Because movment happens after collision
+                    // ^ clumsy hack
                     A.x -= A.xspeed * Game.frameInterpolation;
                     A.y -= A.yspeed * Game.frameInterpolation;
                     B.x -= B.xspeed * Game.frameInterpolation;
@@ -300,9 +294,13 @@
                     Game.score += value;
                     _pointField.innerHTML = Game.score;
                 }
-                Game.explode = function(x,y) {
-                    for ( let i = 0; i < 60; i++ ) {
-                        let maxSpeed = 12
+                Game.explode = function(x,y, mass) {
+                    // mass = 0 to 1
+                    mass = mass === undefined ? 1 : mass;
+                    console.log("explode, mass: "+mass);
+                    let debrisNum = 10 + Math.round(50 * mass);
+                    for ( let i = 0; i < debrisNum; i++ ) {
+                        let maxSpeed = 3 + 9 * mass;
                         let speed = 0.5+Math.random()*(maxSpeed-0.5);
                         let rad = degToRad(Math.random() * 360);
                         let xspeed = Math.cos(rad) * speed;
@@ -310,9 +308,9 @@
                         let diameter = 7 - (speed/maxSpeed) * 5;
                         let lifespan = 1000 + 500*(speed/maxSpeed);
                         let color = "#FFFF00";
-                        if ( diameter > 6.5 ) {
+                        if ( speed < maxSpeed * 0.1 ) {
                             color = "#FF0000";
-                        } else if ( diameter > 5 ) {
+                        } else if ( speed < maxSpeed * 0.35 ) {
                             color = "#FF8800"
                         }
                         let debris = new Debris(x,y,xspeed,yspeed,diameter,lifespan, color);
@@ -418,6 +416,7 @@
                     this._height = h ? h : 0;
                     this._value = 0;
                     this._xspeed = this._yspeed = 0;
+                    this._hp = 1;
                 }
                 predraw () {
                     // rotate and translate
@@ -529,6 +528,15 @@
                 get value () {
                     return this._value;
                 }
+
+                get hp () {
+                    return this._hp;
+                }
+                set hp ( value ) {
+                    if ( typeof value === 'number' ) {
+                        this._hp = value;
+                    }
+                }
             }
 
 
@@ -556,9 +564,9 @@
                     this._thrust = 0;
                     
                     this._shipWidth = w;
-                    this._shieldWidth = w * 3;
-                    this._shields = true;
-                    this.shields = true;
+                    this._shield = new Shield( this );
+                    this._shieldsOn = true;
+                    // this.shieldsOn = true;
                 }
                 draw () {
                     this.predraw();
@@ -585,12 +593,8 @@
                         ctx.stroke();
                     }
 
-                    if ( this.shields ) {
-                        // Draw Shields
-                        ctx.beginPath();
-                        ctx.arc(0, 0, this._shieldWidth * 0.5, 0, 2 * Math.PI);
-                        ctx.strokeStyle = "#999999";
-                        ctx.stroke();
+                    if ( this.shieldsOn ) {
+                        this._shield.draw();
                     }
                     this.postdraw();
                 }
@@ -606,10 +610,10 @@
                     if ( this.liveShots < this._maxShots && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
                         let cos = Math.cos(this.radian);
                         let sin = Math.sin(this.radian);
-                        let nosex = this.shields 
+                        let nosex = this.shieldsOn 
                             ? this.x + cos * this.width * 0.75
                             : this.x + cos * this.height * 0.75;
-                        let nosey = this.shields
+                        let nosey = this.shieldsOn
                             ? this.y + sin * this.width * 0.75
                             : this.y + sin * this.height * 0.75;
                         let xspeed = this.xspeed + cos * this._shotPower;
@@ -656,12 +660,16 @@
                 get liveShots () {
                     return this._liveShots;
                 }
-                set shields ( value ) {
-                    this._shields = !!value;
-                    this._width = this._shields ? this._shieldWidth : this._shipWidth;
+                set shieldsOn ( value ) {
+                    this._shieldsOn = !!value;
+                    // this._width = this._shieldsOn ? this._shieldWidth : this._shipWidth;
                 }
-                get shields () {
-                    return this._shields;
+                get shieldsOn () {
+                    return this._shieldsOn;
+                }
+
+                get width () {
+                    return this._shieldsOn ? this._shield.width : this._width;
                 }
             }
 
@@ -712,6 +720,35 @@
             /*
             ============================================
 
+                        SHIELD CLASS
+
+            ============================================
+            */
+
+            class Shield extends GameElement {
+                constructor( shieldedElement ){
+                    super();
+                    this._shielded = shieldedElement;
+                    this.width = this._shielded.width * 3;
+                }
+                draw(){
+                    super.draw();
+                    this.predraw();
+
+                    // Draw Shields
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.width * 0.5, 0, 2 * Math.PI);
+                    ctx.strokeStyle = "#999999";
+                    ctx.setLineDash([8, 1]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    this.postdraw();
+                }
+            }
+            /*
+            ============================================
+
                         SHOT CLASS
 
             ============================================
@@ -731,6 +768,7 @@
                     this.width = 5;
                     this.height = 5;
                     this._fillColor = "#FFFFFF";
+                    console.log("Shot constructor(), mass: "+this.mass);
                 }
                 move () {
                     super.move();
@@ -743,7 +781,7 @@
                     // glow
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.width, 0, 2 * Math.PI);
-                    ctx.fillStyle = "rgba( 255, 0, 0, 0.5 )"; // hexToRgbaString( this._fillColor, 0.5 );
+                    ctx.fillStyle = "rgba( 0, 255, 255, 0.5 )"; // hexToRgbaString( this._fillColor, 0.5 );
                     ctx.fill();
                     // shot
                     ctx.beginPath();
@@ -756,7 +794,10 @@
                     super.kill();
                 }
                 get mass () {
-                    return 0.05;
+                    return 0.1;
+                }
+                set mass (value) {
+                    this._mass = value;
                 }
             }
 
