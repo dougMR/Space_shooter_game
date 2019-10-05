@@ -241,11 +241,17 @@
                 Game.checkCollision = function ( A, B ) {
                     // Does center of A move through circle of B this frame? 
                     let hitTime = circleSweepTest( A, B );
-                    let hit = hitTime <= 1 && hitTime >= 0;
+                    // let hit = hitTime <= 1 && hitTime >= 0;
                     return hitTime;
                 }
                 Game.handleCollision = function ( A, B, hitTime ) {
                     // hitTime is # between 0 and 1 - at what percent of this frame move do they collide
+
+                    // A.takeDamage( B.attack );
+                    // let Abounce = A.hp > 0;
+                    // B.takeDamage( A.attack );
+                    // let Bbounce = B.hp > 0;
+                    
                     let Abounce = !!A.shieldsOn;
                     let Bbounce = !!B.shieldsOn;
                     if ( Abounce || Bbounce ) { 
@@ -369,7 +375,7 @@
                         // paused game doesn't execute Game.checkKeys()
                         Game.pause();
                     } else if ( keycode === 83 ) {
-                        // 's' play single frame
+                        // 's' play single frame (step)
                         Game.playSingleFrame();
                     }
                     if ( Game.keys[keycode] ) {
@@ -447,6 +453,12 @@
                     }
                     // Kill me
                     delete this;
+                }
+                takeDamage (amount) {
+                    console.log("GameElement.takeDamage()");
+                    if ( typeof amount === "number" ) {
+                        this.hp -= amount;
+                    }
                 }
 
                 set strokeColor (value) {
@@ -646,6 +658,12 @@
                     this.yspeed -= this.yspeed * 0.01 * Game.frameInterpolation;
                     if ( Math.abs(this.xspeed) < 0.1 && Math.abs(this.yspeed) < 0.1 ) {
                         this.xspeed = this.yspeed = 0;
+                    }
+                }
+                takeDamage (amount) {
+                    console.log("Ship.takeDamage()");
+                    if ( typeof amount === "number" ) {
+                        this.hp -= amount;
                     }
                 }
                 get radian () {
@@ -958,6 +976,21 @@
             }
 
             /*          
+
+            d8888b.  .d88b.  d888888b d8b   db d888888b       .d88b.  d88888b       
+            88  `8D .8P  Y8.   `88'   888o  88 `~~88~~'      .8P  Y8. 88'           
+            88oodD' 88    88    88    88V8o 88    88         88    88 88ooo          
+            88~~~   88    88    88    88 V8o88    88         88    88 88~~~            
+            88      `8b  d8'   .88.   88  V888    88         `8b  d8' 88               
+            88       `Y88P'  Y888888P VP   V8P    YP          `Y88P'  YP             
+
+            d88888b d8b   db d888888b d8888b. db    db
+            88'     888o  88 `~~88~~' 88  `8D `8b  d8'
+            88ooooo 88V8o 88    88    88oobY'  `8bd8'
+            88~~~~~ 88 V8o88    88    88`8b      88
+            88.     88  V888    88    88 `88.    88
+            Y88888P VP   V8P    YP    88   YD    YP
+
             ============================================
 
                         POINT OF ENTRY
@@ -1039,7 +1072,7 @@
                     Byv = sprite2.yspeed;
 
                 var maxint = 10000;
-                /* Returns the amount of frames untill a collision will occur */ 
+                /* Returns the amount of frames until a collision will occur */ 
                 var t = maxint;
                 var A, B, C, D, DISC;
                 /* Breaking down the formula for t */ 
@@ -1114,16 +1147,26 @@
             ============================================
             */
 
+            // Arrowkeys
             Game.setKey ( "left", 37, () => playerShip.turnLeft() );
             Game.setKey ( "right", 39, () => playerShip.turnRight() );
             Game.setKey ( "thrust", 38, () => playerShip.thrust() );
-            Game.setKey ( "thrust", 93, () => playerShip.thrust() );
-            Game.setKey ( "thrust", 91, () => playerShip.thrust() );
+
+            // WAD
+            Game.setKey ( "thrust", 87, () => playerShip.thrust() );
+            Game.setKey ( "left", 65, () => playerShip.turnLeft() );
+            Game.setKey ( "right", 68, () => playerShip.turnRight() );
+
+            // Spacebar
             Game.setKey ( "fire", 32, () => playerShip.shoot() );
+
+            // ? Game.setKey ( "thrust", 93, () => playerShip.thrust() );
+            // ? Game.setKey ( "thrust", 91, () => playerShip.thrust() );
+            
             // Game.setKey ( "pause", 80, Game.pause );
 
             document.addEventListener( "keydown",  function(e) {
-                // console.log("keydown: "+e.which);
+                console.log("keydown: "+e.which);
                 Game.keyDown(e.which);
                 e.preventDefault();
             });
