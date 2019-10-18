@@ -11,12 +11,12 @@
     <script
     src="js/colorUtilities.js"
     ></script>
-    <!-- <script
+    <script
     src="js/TweenLite.min.js"
-    ></script> -->
+    ></script>
     <style>
         body {
-            background-color: #333;
+            background-color: #222;
             background-image: url('images/space_tile_720.jpg');
             margin: 0;
             padding: 0;
@@ -32,32 +32,46 @@
             font-family: monospace;
             font-weight: bold;
             position: absolute;
+            right: 0;
+            text-align: right;
+        }
+        #fps {
+            color: white;
+            font-size: 1rem;
+            font-family: sans-serif;
+            font-weight: normal;
+            position: absolute;
             left: 0;
             text-align: right;
         }
     </style>
 </head>
 <body>
-    <p style="color: #CCC">
+    <p style="color: #CCCC88">
         TURN: l/r arrows, THRUST: up arrow, FIRE: spacebar
     </p>
+    <span id="fps" style="color: #CCC;">FPS:</span>
     <span id="score">
         00
     </span>
+    
     <canvas id="myCanvas" width="1000" height="800"></canvas>
 
     <script>
         var AsteroidsNameSpace = (function(){            
             
             let Game = (function(){
-                // "Singleton" of sorts
+                // "Singleton" of sorts?
                 // Turning into a Catch-all
                 const Game = {};
-                let _intervalId = null;
+                // let _intervalId = null;
                 let _fps = 30;
-                let _lastTick = (new Date).getTime();
+                let _fpsArray = [];
+                let _fpsTimer = 0;
+                let _lastTick = performance.now(); // (new Date).getTime();
                 let _timeStep = 1000/_fps; // target length of a frame
                 let _pointField = document.getElementById("score");
+                let _backgroundOn = true;
                 // Game.timeStep = _timeStep;
                 Game.strokeColor = "#CCCCCC";
                 Game.fillColor = Game.strokeColor;
@@ -66,10 +80,13 @@
                 Game.opponents = [];
                 Game.debris = [];
                 Game.blackHoles = [];
+                Game.prizes = [];
                 Game.currentTime = 0; // Game clock
                 Game.nextBlackHoleTime = Game.currentTime + 10000;
                 Game.nextOpponentTime = Game.currentTime + 5000;
-                Game.maxOpponents = 3;
+                Game.maxOpponents = 1;
+                Game.nextPrizeTime = Game.currentTime + 11000;
+                Game.maxPrizes = 1;
                 Game.gameOver = false;
                 Game.score = 0;
                 _paused = false;
@@ -80,11 +97,27 @@
                     //
                     // Main Game Loop
                     //
-                    let now = (new Date).getTime();
+                    let now = performance.now(); // (new Date).getTime();
                     Game.msThisFrame = now - _lastTick;
                     _lastTick = now;
                     Game.currentTime += Game.msThisFrame;
                     Game.frameInterpolation = Game.msThisFrame / _timeStep; // % of a full frame
+
+                    // Display current FPS
+                    // let fps = 1000 / Game.msThisFrame;
+                    _fpsTimer += Game.msThisFrame;
+                    _fpsArray.push( Game.msThisFrame );
+                    if ( _fpsTimer >= 1000 ) {
+                        let total = _fpsArray.reduce((a, b) => a + b, 0);
+                        let avg = total / _fpsArray.length;
+                        avg = Math.round(avg);
+                        let fps = 1000/avg;
+                        fps = Math.round(fps);
+                        document.getElementById('fps').innerHTML = (`_fpsArray.length: ${_fpsArray.length}<br>
+                        total: ${total}<br>avg: ${avg}<br>fps: ${fps}`);
+                        _fpsArray.length = 0;
+                        _fpsTimer = 0;
+                    }
                     
                     // Check Collisions
                     Game.checkCollisions( Game.shots, Game.opponents );
@@ -92,10 +125,11 @@
                     Game.checkCollisions( contractingBlackHoles, Game.opponents );
                     if ( playerShip.alive ) {
                         playerShip.move();
-                        Game.scrollBackground();
+                        if ( _backgroundOn ) Game.scrollBackground();
                         Game.flyOpponents();
                         Game.keepInBounds(playerShip);
                         Game.checkCollisions( Game.shots, [playerShip] );
+                        Game.checkCollisions( Game.prizes, [playerShip]);
                         Game.checkCollisions( Game.opponents, [playerShip] );
                         Game.checkCollisions( contractingBlackHoles, [playerShip] );
                         // Check Input
@@ -107,6 +141,7 @@
                     Game.moveGamePieces( Game.opponents );
                     Game.moveGamePieces( Game.debris );
                     Game.moveGamePieces( Game.blackHoles );
+                    Game.moveGamePieces( Game.prizes );
                     
                     // Do the drawing
                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -115,16 +150,23 @@
                     Game.drawGamePieces( Game.shots );
                     Game.drawGamePieces( Game.opponents );
                     Game.drawGamePieces( Game.debris );
+                    Game.drawGamePieces( Game.prizes );
 
+                    // Handle spawning
                     if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && !Game.gameOver ) {
                         Game.spawnOpponent();
                         Game.nextOpponentTime = Game.currentTime + 5000;
+                    }
+                    if ( Game.currentTime > Game.nextPrizeTime && Game.prizes.length < Game.maxPrizes && !Game.gameOver ) {
+                        Game.spawnPrize();
+                        Game.nextPrizeTime = Game.currentTime + 5000;
                     }
                     if ( Game.currentTime > Game.nextBlackHoleTime && !Game.gameOver ) {
                         let TempHole = new BlackHole();
                         TempHole.myArray = Game.blackHoles;
                         Game.nextBlackHoleTime = Game.currentTime + 10000;
                     }
+                    
                     if ( !_paused ) {
                         window.requestAnimationFrame( Game.run );
                     }
@@ -133,7 +175,7 @@
                 Game.start = function(){
                     console.log( "Game.start()" );
                     _paused = false;
-                    let pausedDuration = (new Date).getTime() - _lastTick;
+                    let pausedDuration = performance.now() - _lastTick; // (new Date).getTime() - _lastTick;
                     _lastTick += pausedDuration - _timeStep;
                     console.log("pausedDuration", pausedDuration);
                     window.requestAnimationFrame(Game.run);
@@ -225,6 +267,25 @@
                     opponentShip.shieldsOn = false;
                     opponentShip.myArray = Game.opponents;
                 }
+                Game.spawnPrize = function() {
+                    let x = canvas.width * Math.random();
+                    let y = canvas.height * Math.random();
+                    let testPrize = new Prize( x, y, "shield" );
+                    testPrize.myArray = Game.prizes;
+                }
+                /*
+                Game.spawn = function ( cl, ar ) {
+                    console.log( cl );
+                    
+                    let spawnInstance = new cl( 40, 60, 0, 0 );
+                    spawnInstance.myArray = ar;
+                    let width = spawnInstance.width;
+                    console.log(spawnInstance);
+                    spawnInstance.x = width*0.5 + (canvas.width-width) * Math.random();
+                    spawnInstance.y = width*0.5 + (canvas.height-width) * Math.random();
+                    
+                }
+                */
                 
                 Game.checkCollisions = function ( groupA, groupB ) {
                     for ( let A of groupA ) {
@@ -247,28 +308,41 @@
                 Game.handleCollision = function ( A, B, hitTime ) {
                     // hitTime is # between 0 and 1 - at what percent of this frame move do they collide
 
-                    // A.takeDamage( B.attack );
-                    // let Abounce = A.hp > 0;
-                    // B.takeDamage( A.attack );
-                    // let Bbounce = B.hp > 0;
-                    
-                    let Abounce = !!A.shieldsOn;
-                    let Bbounce = !!B.shieldsOn;
-                    if ( Abounce || Bbounce ) { 
-                        Game.bounce ( A, B, hitTime );
+                    let testDamage = 1;                    
+
+                    if ( A instanceof Prize || B instanceof Prize ) {
+                        console.log("prize collided");
+                        let prize = A instanceof Prize ? A : B;
+                        let collector = A === prize ? B : A;
+                        prize.collect ( collector );
+                    } else {
+                        let Abounce = !!A.shieldsOn;
+                        let Bbounce = !!B.shieldsOn;
+                        if ( Abounce || Bbounce ) { 
+                            Game.bounce ( A, B, hitTime );
+                        }
+                        A.takeDamage( testDamage );
+                        B.takeDamage( testDamage );
                     }
+                    
+                    
+                    // 
+                    /*
                     if ( !Abounce ) {
-                        Game.addPoints(A.value);
-                        A.kill();
                         if ( Bbounce && ! (A instanceof BlackHole) ) {
+                            Game.addPoints(A.value);
                             Game.explode(A.x, A.y, A.mass);
+                            A.kill();
                         }
                     }
                     if ( !Bbounce ) {
-                        Game.addPoints(B.value);
-                        Game.explode(B.x,B.y, B.mass);
-                        B.kill();
+                        if ( Abounce && ! (B instanceof BlackHole) ) {
+                            Game.addPoints(B.value);
+                            Game.explode(B.x,B.y, B.mass);
+                            B.kill();
+                        }
                     }
+                    */
                 }
                 Game.bounce = function ( A, B, hitTime ) {
                     // Move to touching
@@ -298,19 +372,26 @@
                 }
                 Game.addPoints = function( value ) {
                     Game.score += value;
-                    _pointField.innerHTML = Game.score;
+                    let scoreString = Game.score.toString().padStart(4, '0');
+                    _pointField.innerHTML = scoreString;
                 }
-                Game.explode = function(x,y, mass) {
+                Game.explode = function(element) {
+                    let x = element.x;
+                    let y = element.y;
+                    let mass = element.mass;
+                    console.log(`element.mass: ${element.mass}`);
+                    let elemYspeed = element.yspeed;
+                    let elemXspeed = element.xspeed;
                     // mass = 0 to 1
                     mass = mass === undefined ? 1 : mass;
-                    console.log("explode, mass: "+mass);
+                    // console.log("explode, mass: "+mass);
                     let debrisNum = 10 + Math.round(50 * mass);
                     for ( let i = 0; i < debrisNum; i++ ) {
                         let maxSpeed = 3 + 9 * mass;
                         let speed = 0.5+Math.random()*(maxSpeed-0.5);
                         let rad = degToRad(Math.random() * 360);
-                        let xspeed = Math.cos(rad) * speed;
-                        let yspeed = Math.sin(rad) * speed;
+                        let xspeed = Math.cos(rad) * speed + elemXspeed*0.5;
+                        let yspeed = Math.sin(rad) * speed + elemYspeed*0.5;
                         let diameter = 7 - (speed/maxSpeed) * 5;
                         let lifespan = 1000 + 500*(speed/maxSpeed);
                         let color = "#FFFF00";
@@ -355,6 +436,12 @@
                     const bgY = -(tileSize * playerOffsetY);
                     document.body.style.backgroundPosition = bgX+"px "+bgY+"px";
                 }
+                Game.toggleBackground = function () {
+                    _backgroundOn = !_backgroundOn;
+                    document.body.style.backgroundImage = 
+                        _backgroundOn ? "url('images/space_tile_720.jpg')"
+                        : "none";
+                }
 
                 Game.checkKeys = function () {
                     for ( let key of Game.keys ) {
@@ -369,19 +456,20 @@
                     Game.keys[keyCode] = { name : name, isDown : false, downFunc : downFunc, upFunc : upFunc == undefined ? null : upFunc };
                 }
                 Game.keyDown = function ( keycode ) {
+                    // These keys are checked even when game is paused
                     if ( keycode === 80 ) {
                         // 'p' toggle pause
-                        // this is special case because
-                        // paused game doesn't execute Game.checkKeys()
                         Game.pause();
                     } else if ( keycode === 83 ) {
                         // 's' play single frame (step)
                         Game.playSingleFrame();
+                    } else if ( keycode === 66 ) {
+                        // 'b' toggle background
+                        Game.toggleBackground();
                     }
                     if ( Game.keys[keycode] ) {
-                        // if ( Game.keys[keycode].downFunc != undefined ) {
-                        //     Game.keys[keycode].downFunc();
-                        // }
+                        // These only happen when Game.run() loop is running 
+                        // and Game.checkKeys() gets executed
                         Game.keys[keycode].isDown = true;
                     }
                 }
@@ -423,6 +511,11 @@
                     this._value = 0;
                     this._xspeed = this._yspeed = 0;
                     this._hp = 1;
+                    this._maxHP = 1;
+                    this._myTween = null;
+                    this._explosive = true;
+                    this._mass = 1;
+                    this._startTime = Game.currentTime;
                 }
                 predraw () {
                     // rotate and translate
@@ -445,7 +538,7 @@
                     this.y += this.yspeed * Game.frameInterpolation;
                 }
                 kill () {
-                    // console.log("kill element");
+                    // console.log("GameElement.kill()");
                     // remove me from myArray
                     if ( this.myArray ) {
                         let i = this.myArray.indexOf( this );
@@ -455,9 +548,15 @@
                     delete this;
                 }
                 takeDamage (amount) {
-                    console.log("GameElement.takeDamage()");
+                    // console.log("GameElement.takeDamage()");
                     if ( typeof amount === "number" ) {
                         this.hp -= amount;
+                        // console.log(`this.hp: ${this.hp}`);
+                        if ( this.hp <= 0 ) {
+                            Game.addPoints(this.value);
+                            if (this._explosive) Game.explode(this);
+                            this.kill();
+                        }
                     }
                 }
 
@@ -524,7 +623,10 @@
                 }
 
                 get mass () {
-                    return 1;
+                    return this._mass;
+                }
+                set mass ( value ) {
+                    this._mass = value;
                 }
 
                 set myArray ( value ) {
@@ -548,6 +650,9 @@
                     if ( typeof value === 'number' ) {
                         this._hp = value;
                     }
+                }
+                get age () {
+                    return Game.currentTime - this._startTime;
                 }
             }
 
@@ -576,9 +681,8 @@
                     this._thrust = 0;
                     
                     this._shipWidth = w;
-                    this._shield = new Shield( this );
-                    this._shieldsOn = true;
-                    // this.shieldsOn = true;
+                    this._shield = new Shield( this._width );
+                    this._shield.on = true;
                 }
                 draw () {
                     this.predraw();
@@ -605,10 +709,16 @@
                         ctx.stroke();
                     }
 
-                    if ( this.shieldsOn ) {
+                    if ( this._shield.on ) {
                         this._shield.draw();
                     }
                     this.postdraw();
+                    // Show hitpoints, for testing
+                   /* ctx.fillStyle = '#FFFF00';
+                    ctx.font = '28px sans-serif';
+                    let hp = this.shield.on ? this.shield.hp : this.hp;
+                    ctx.fillText(hp, this.x + 10, this.y - 10 );
+                    */
                 }
                 turnRight ( value ) {
                     let rot = value ? value : 5;
@@ -661,9 +771,20 @@
                     }
                 }
                 takeDamage (amount) {
-                    console.log("Ship.takeDamage()");
+                    // console.log("Ship.takeDamage()");
                     if ( typeof amount === "number" ) {
-                        this.hp -= amount;
+                        if ( this.shield.on ) {
+                            // console.log(`this.shield.on, send damage to this.shield`);
+                            this.shield.takeDamage(amount);
+                        } else {
+                            super.takeDamage(amount);
+                            // this.hp -= amount;
+                            // if ( this.hp <= 0 ) {
+                            //     Game.addPoints(this.value);
+                            //     Game.explode(this.x, this.y, this.mass);
+                            //     this.kill();
+                            // }
+                        }
                     }
                 }
                 get radian () {
@@ -679,15 +800,17 @@
                     return this._liveShots;
                 }
                 set shieldsOn ( value ) {
-                    this._shieldsOn = !!value;
-                    // this._width = this._shieldsOn ? this._shieldWidth : this._shipWidth;
+                    this.shield.on = !!value;
                 }
                 get shieldsOn () {
-                    return this._shieldsOn;
+                    return this.shield.on;
+                }
+                get shield () {
+                    return this._shield;
                 }
 
                 get width () {
-                    return this._shieldsOn ? this._shield.width : this._width;
+                    return this._shield.on ? this._shield.width : this._width;
                 }
             }
 
@@ -707,6 +830,7 @@
                     this._shotPower = 12;
                     this._value = -1;
                     this._strokeColor = Game.playerColor;
+                    this.hp = this._maxHP = 1;
                 }
                 draw () {
                     if ( this._alive ) {
@@ -714,6 +838,7 @@
                     }
                 }
                 kill () {
+                    console.log(`Playership.kill()`);
                     if ( this._alive ) {
                         // Game.gameOver = true;
                         Game.respawnPlayer();
@@ -729,6 +854,7 @@
                     this.xspeed = this.yspeed = 0;
                     this._thrust = 0;
                     this._alive = true;
+                    this.hp = this._maxHP;
                 }
                 get alive () {
                     return this._alive;
@@ -744,25 +870,84 @@
             */
 
             class Shield extends GameElement {
-                constructor( shieldedElement ){
+                constructor( shieldedElementWidth ){
+                    // Can't get shieldedElement.width because its width method checks 
+                    // its .shield property, which isnt defined until this has been created
+                    // Better solution?  I guess we can pass only width, don't need game element itself
+                    
                     super();
-                    this._shielded = shieldedElement;
-                    this.width = this._shielded.width * 3;
+                    // this._shielded = shieldedElement;
+                    this._active = false;
+                    
+                    this._color = this._fullColor = "#0099FF";
+                    this._emptyColor = "#FF0000";
+                    this._hitColor = "#FFFF55";
+                    this.width = shieldedElementWidth * 4;
+                    this._explosive = false;
+                    this.hp = this._maxHP = 10;
                 }
                 draw(){
-                    super.draw();
                     this.predraw();
 
                     // Draw Shields
                     ctx.beginPath();
                     ctx.arc(0, 0, this.width * 0.5, 0, 2 * Math.PI);
-                    ctx.strokeStyle = "#999999";
+                    ctx.strokeStyle = this._color;
                     ctx.setLineDash([8, 1]);
                     ctx.stroke();
                     ctx.setLineDash([]);
 
                     this.postdraw();
                 }
+                takeDamage (amount) {
+                    if ( typeof amount === "number" ) {
+                        this.hp -= amount;
+                        TweenLite.killTweensOf(this);
+                        if ( this.hp <= 0 ) {
+                            this._active = false;
+                        } else {
+                            // flash bright, then fade down to color between full and empty
+                            this.flashColor( this._hitColor, this.calculateColor() );
+                        }
+                    }
+                }
+                flashColor ( startColor, endColor ) {
+                    endColor = endColor != undefined ? endColor : this._color;
+                    let that = this;
+                    let updateColor = function () {
+                        let pct = Math.round(this.totalProgress()*100);
+                        that._color = mixHexColors( startColor, endColor, pct);
+                    }
+                    TweenLite.to(this, 0.25, { ease: Power2.easeIn, onUpdate:updateColor});
+                }
+                calculateColor () {
+                    let colorPct = Math.min ( 100, Math.round( 100 * this.hp / this._maxHP ) );
+                    return mixHexColors(this._emptyColor, this._fullColor, colorPct);
+                }
+                set hp (value) {
+                    super.hp = value;
+                    if ( typeof value === 'number' && value > 0 ) {
+                        // set shield color when shield is turned on and hp added.
+                        this._color = this.calculateColor();
+                        // when hp lessens, color is set with a Tween
+                    }
+                }
+                get hp () {
+                    return super.hp;
+                }
+                get active () {
+                    return this._active;
+                }
+                set active (value) {
+                    this._active = !!value;
+                }
+                get on () {
+                    return this._active;
+                }
+                set on (value) {
+                    this.active = !!value;
+                }
+
             }
             /*
             ============================================
@@ -776,6 +961,7 @@
                 constructor (x, y, xspeed, yspeed, ship) {
                     super();
                     // init
+                    this.mass = 0.1;
                     this.x = x;
                     this.y = y;
                     this.xspeed = xspeed;
@@ -786,7 +972,7 @@
                     this.width = 5;
                     this.height = 5;
                     this._fillColor = "#FFFFFF";
-                    console.log("Shot constructor(), mass: "+this.mass);
+                    // console.log("Shot constructor(), mass: "+this.mass);
                 }
                 move () {
                     super.move();
@@ -799,23 +985,26 @@
                     // glow
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.width, 0, 2 * Math.PI);
-                    ctx.fillStyle = "rgba( 0, 255, 255, 0.5 )"; // hexToRgbaString( this._fillColor, 0.5 );
+                    ctx.fillStyle = "rgba( 0, 255, 200, 0.5 )"; // hexToRgbaString( this._fillColor, 0.5 );
                     ctx.fill();
                     // shot
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.width * 0.5, 0, 2 * Math.PI);
                     ctx.fillStyle = this._fillColor;
                     ctx.fill();
+
+                    // Show hitpoints, for testing
+                    /*ctx.fillStyle = '#FFFF00';
+                    ctx.font = '18px sans-serif';
+                    ctx.fillText(this.hp, this.x + 10, this.y - 10 );
+                    */
                 }
+
                 kill () {
+                    // console.log(`Shot.kill()`);
+                    // v what happends if this.myShip is already destroyed?
                     this.myShip.liveShots --;
                     super.kill();
-                }
-                get mass () {
-                    return 0.1;
-                }
-                set mass (value) {
-                    this._mass = value;
                 }
             }
 
@@ -889,6 +1078,7 @@
                     this._maxAge = 8000; //ms
                     this._contracting = false;
                     this._startTime = Game.currentTime;
+                    this._explosive = false;
                 }
                 draw () {                    
                     // Draw a circle
@@ -962,16 +1152,63 @@
             ============================================
             */
             class Prize extends GameElement {
-                constructor ( x, y ) {
-                    // console.log("new Prize()");
+                constructor ( x, y, type ) {
+                    console.log("new Prize()");
                     super();
                     this.x = x || Math.random() * canvas.width;
                     this.y = y || Math.random() * canvas.height;
-                    this._diameter = 20;
+                    this._radius = 16;
+                    this.width = this._radius * 2;
                     this._ringColor = '#5555FF';
                     this._dotColor = "#55FF55";
-                    this._age = 0;
-                    this._maxAge = 8000; //ms
+                    this._maxAge = 28000; //ms
+                    this._type = type;
+                }
+                draw () {
+                    this.predraw();
+
+                    // Draw Prize 
+                    // dot
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this._radius * 0.25, 0, 2 * Math.PI);
+                    ctx.fillStyle = this._dotColor;
+                    ctx.fill();
+                    // rings
+                    let pct = ( this.age % 1000 ) / 1000;
+                    let pct2 = ( pct + 0.5 ) % 1;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this._radius * pct, 0, 2 * Math.PI);
+                    ctx.strokeStyle = this._dotColor;
+                    ctx.stroke();
+                    // ctx.moveTo(this._radius * pct2, 0);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this._radius * pct2, 0, 2 * Math.PI);
+                    ctx.strokeStyle = this._ringColor;
+                    ctx.stroke();
+
+                    this.postdraw();
+                }
+                move () {
+                    if ( this.age >= this._maxAge ) {
+                        this.kill();
+                    }
+                }
+                collect ( collector ) {
+                    switch ( this.type ) {
+                        case "shield":
+                            // turn collector's shield on
+                            collector.shield.on = true;
+                            // add 10hp to the shield
+                            collector.shield.hp += 10;
+
+                            collector.shield.flashColor("#FFFFFF");
+                            break;
+                        default:
+                    }
+                    this.kill();
+                }
+                get type () {
+                    return this._type;
                 }
             }
 
@@ -1003,7 +1240,9 @@
             canvas.height = windowDims.height;
             const ctx = canvas.getContext('2d');
             let playerShip = new PlayerShip(10,20,100,100,0);
+            // playerShip.shield.on = false;
             Game.spawnOpponent();
+            // Game.spawn ( Ship, Game.opponents );
             Game.start();
 
             // const triangle1 = new Triangle( 10, 20 );
@@ -1166,7 +1405,7 @@
             // Game.setKey ( "pause", 80, Game.pause );
 
             document.addEventListener( "keydown",  function(e) {
-                console.log("keydown: "+e.which);
+                // console.log("keydown: "+e.which);
                 Game.keyDown(e.which);
                 e.preventDefault();
             });
