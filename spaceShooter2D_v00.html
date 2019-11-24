@@ -307,7 +307,7 @@
                     let margin = 50;
                     let x = margin + (canvas.width-2*margin) * Math.random();
                     let y = margin + (canvas.height-2*margin) * Math.random();
-                    let type = Math.random() < 1 ? "shield" : "doubleShot";
+                    let type = Math.random() < 0.5 ? "shield" : "doubleShot";
                     let testPrize = new Prize( x, y, type );
                     testPrize.myArray = Game.prizes;
                 }
@@ -837,8 +837,9 @@
                     let radian = degToRad( this.rotation );
                     let xthrust = Math.cos(radian)*this._thrust;
                     let ythrust = Math.sin(radian)*this._thrust;
-                    this.xspeed = (this.xspeed * 15 + xthrust) / 16;
-                    this.yspeed = (this.yspeed * 15 + ythrust) / 16;
+                    let inertia = 15;
+                    this.xspeed = (this.xspeed * inertia + xthrust) / (inertia+1);
+                    this.yspeed = (this.yspeed * inertia + ythrust) / (inertia+1);
                 }
                 move () {
                     super.move();
@@ -1171,7 +1172,7 @@
                     this._diameter = this.minDiameter;
                     this._startColor = '#332277';
                     this._endColor = "#5566CC";
-                    this._fillColor = this._startColor;
+                    
                     this._maxAge = 8000; //ms
                     this._contracting = false;
                     this._startTime = Game.currentTime;
@@ -1181,22 +1182,25 @@
                     // Draw a circle
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this._diameter * 0.5, 0, 2 * Math.PI);
-                    // ctx.fillStyle = this._fillColor;
                     let innerRadius = 0.1 * this._diameter;
-                    let color2;
+                    let color1,color2,stop2;
                     if ( this.isContracting ) {
+                        color1 = this._startColor;
                         color2 = this._endColor;
-                        innerRadius = 0.4 * this._diameter;
+                        innerRadius = 0;
+                        stop2 = 0.85;
                     } else {
+                        color1 = '#000000';
                         color2 = mixHexColors(this._startColor, this._endColor, this.lifePercent*100); //;
-                        innerRadius += this.lifePercent * (0.35*this.width);
+                        innerRadius += this.lifePercent * (0.4*this.width);
+                        stop2 = 0.2;
                     }
                     var gradient = ctx.createRadialGradient(this.x,this.y,innerRadius, this.x,this.y,this.width*0.5);
 
                     // Add color stops
-                    gradient.addColorStop(0, '#000000');
-                    // gradient.addColorStop(0.01, '#ff0000');
-                    gradient.addColorStop(.9, color2);
+                    gradient.addColorStop(0, color1 );
+                    gradient.addColorStop(stop2, color2 );
+                    gradient.addColorStop(1, '#110033' );
 
                     ctx.fillStyle = gradient;
                     
@@ -1223,8 +1227,8 @@
                     // turn into black hole,
                     // destroying everything within its circle
                     this._contracting = true;
-                    this._fillColor = "#000000";
-                    this._endColor = "#990022";
+                    this._startColor = "#990022";
+                    this._endColor = "#000000";
                 }
                 kill () {
                     // Do nothing
@@ -1275,8 +1279,8 @@
                         ctx.stroke();
                         ctx.setLineDash([]);
                     } else if ( this._type === "doubleShot" ) {
-                        ctx.arc(-this._radius * 0.3, 0, this._radius * 0.25, 0, 2 * Math.PI);
-                        ctx.arc(this._radius * 0.3, 0, this._radius * 0.25, 0, 2 * Math.PI);
+                        ctx.arc(-this._radius * 0.3, 0, this._radius * 0.2, 0, 2 * Math.PI);
+                        ctx.arc(this._radius * 0.3, 0, this._radius * 0.2, 0, 2 * Math.PI);
                         ctx.fillStyle = this._dotColor;
                         ctx.fill();
                     }
@@ -1286,7 +1290,7 @@
                     let pct2 = ( pct + 0.5 ) % 1;
                     ctx.beginPath();
                     ctx.arc(0, 0, this._radius * pct, 0, 2 * Math.PI);
-                    ctx.strokeStyle = '#0055FF';
+                    ctx.strokeStyle = '#0088FF';
                     ctx.stroke();
                     // ctx.moveTo(this._radius * pct2, 0);
                     ctx.beginPath();
@@ -1409,7 +1413,7 @@
                     let completePoints = function () {
                         that.kill();
                     }
-                    TweenLite.to( this, 1, { y:newY, ease: Power2.easeIn, onComplete:completePoints });
+                    TweenLite.to( this, 1, { y:newY, ease: Power1.easeOut, onComplete:completePoints });
                 }
             }
 
