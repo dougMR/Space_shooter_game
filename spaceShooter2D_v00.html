@@ -24,6 +24,7 @@
         #myCanvas {
             position: absolute;
             top: 0;
+            left: 0;
             border: 1px solid grey;
         }
         #score {
@@ -32,17 +33,22 @@
             font-family: monospace;
             font-weight: bold;
             position: absolute;
-            right: 0;
+            right: 1rem;
             text-align: right;
         }
-        #fps {
-            color: #005500;
+        #fps, #player-shield-strength {
             font-size: 1rem;
             font-family: sans-serif;
+            color: #005500;
             font-weight: normal;
             position: absolute;
             left: 0;
             text-align: right;
+        }
+        #player-shield-strength {
+            position: static;
+            text-align: left;
+            color: green;
         }
     </style>
 </head>
@@ -50,7 +56,8 @@
     <p style="color: #CCCC88">
         TURN: l/r arrows, THRUST: up arrow, FIRE: spacebar
     </p>
-    <span id="fps" >FPS:</span>
+    <p id="player-shield-strength"> SHIELD STRENGTH </p>
+    <span id="fps">FPS:</span>
     <span id="score">
         00
     </span>
@@ -128,6 +135,8 @@
                     Game.checkCollisions( contractingBlackHoles, Game.opponents );
                     let shieldedOpponents = Game.opponents.filter((x)=>x.shield.on);
                     Game.checkCollisions( shieldedOpponents, Game.opponents );
+                    Game.checkCollisions( Game.prizes, Game.opponents );
+
                     if ( playerShip.alive ) {
                         playerShip.move();
                         if ( _backgroundOn === 2 ) Game.scrollBackground();
@@ -135,7 +144,6 @@
                         Game.keepInBounds(playerShip);
                         Game.checkCollisions( Game.shots, [playerShip] );
                         Game.checkCollisions( Game.prizes, [playerShip]);
-                        Game.checkCollisions( Game.prizes, Game.opponents );
                         Game.checkCollisions( Game.opponents, [playerShip] );
                         Game.checkCollisions( contractingBlackHoles, [playerShip] );
                         // Check Input
@@ -174,7 +182,7 @@
                         Game.nextBlackHoleTime = Game.currentTime + 13000;
                     }
 
-                    // Handle increases
+                    // Handle level increases
                     let tempLevelUpTime = 60000;
                     if ( Game.currentTime - Game.lastLevelIncreaseTime > tempLevelUpTime) {
                         Game.increaseLevel();
@@ -299,7 +307,8 @@
                     let margin = 50;
                     let x = margin + (canvas.width-2*margin) * Math.random();
                     let y = margin + (canvas.height-2*margin) * Math.random();
-                    let testPrize = new Prize( x, y, "shield" );
+                    let type = Math.random() < 1 ? "shield" : "doubleShot";
+                    let testPrize = new Prize( x, y, type );
                     testPrize.myArray = Game.prizes;
                 }
                 /*
@@ -357,6 +366,12 @@
                         B.takeDamage( testDamage );
                     }
                     
+                    if ( A == playerShip || B == playerShip ) {
+                        // display player's shield strength
+                        let shieldSpan = document.getElementById('player-shield-strength');
+                        let shieldText = playerShip.shieldsOn ? `SHIELD STRENGTH: ${playerShip.shield.hp}` : ``;
+                        shieldSpan.innerText = shieldText;
+                    }
                     
                     // 
                     /*
@@ -589,7 +604,11 @@
                         this.hp -= amount;
                         // console.log(`this.hp: ${this.hp}`);
                         if ( this.hp <= 0 ) {
-                            Game.addPoints(this.value);
+                            if ( this.value != 0 ) {
+                                Game.addPoints(this.value);
+                                let pointsDisplay = new PointsDisplay( this.x, this.y, this.value );
+                                pointsDisplay.myArray = Game.graphics;
+                            }
                             if (this._explosive) Game.explode(this);
                             this.kill();
                         }
@@ -728,12 +747,13 @@
                     this._shipWidth = w;
                     this._shield = new Shield( this._width );
                     this._shield.on = true;
+                    this._doubleShots = 0;
                 }
                 draw () {
                     this.predraw();
                     // Draw Triangle
                     ctx.strokeStyle = this._strokeColor;
-                    ctx.lineWidth = 2;
+                    // ctx.lineWidth = 2;
                     ctx.beginPath();
 
                     ctx.moveTo( this.height*0.5, 0 );
@@ -774,7 +794,10 @@
                     this.rotation -= rot * Game.frameInterpolation;
                 }
                 shoot () {
-                    if ( this.liveShots < this._maxShots && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
+                    console.log(`liveshots|maxshots: ${this.liveShots}|${this._maxShots}`);
+                    let doubleShot = this.doubleShots > 0;
+                    let max = doubleShot ? this._maxShots * 2 : this._maxShots;
+                    if ( this.liveShots < max && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
                         let cos = Math.cos(this.radian);
                         let sin = Math.sin(this.radian);
                         let nosex = this.shieldsOn 
@@ -785,10 +808,26 @@
                             : this.y + sin * this.height * 0.75;
                         let xspeed = this.xspeed + cos * this._shotPower;
                         let yspeed = this.yspeed + sin * this._shotPower;
-                        let shot = new Shot( nosex, nosey, xspeed, yspeed, this );
-                        shot.myArray = Game.shots;
-
-                        this.liveShots++;
+                        if ( doubleShot ) {
+                            degToRad( this._rot );
+                            radToDeg( this.radian );
+                            let perpendicularAngle = this._rot - 90;
+                            let perpendicularCos = Math.cos( degToRad( perpendicularAngle ));
+                            let perpendicularSin = Math.sin( degToRad( perpendicularAngle ));
+                            let shot1x = nosex + perpendicularCos * 10;
+                            let shot1y = nosey + perpendicularSin * 10;
+                            let shot2x = nosex - perpendicularCos * 10;
+                            let shot2y = nosey - perpendicularSin * 10;
+                            let shot1 = new Shot( shot1x, shot1y, xspeed, yspeed, this );
+                            let shot2 = new Shot( shot2x, shot2y, xspeed, yspeed, this );
+                            shot1.myArray = shot2.myArray = Game.shots;
+                            this.liveShots += 2;
+                            this.doubleShots -= 1;
+                        } else {
+                            let shot = new Shot( nosex, nosey, xspeed, yspeed, this );
+                            shot.myArray = Game.shots;
+                            this.liveShots++;
+                        }
                         this._lastShotTime = Game.currentTime;
                     }
                 }
@@ -852,6 +891,15 @@
                 }
                 get shield () {
                     return this._shield;
+                }
+
+                get doubleShots () {
+                    return this._doubleShots;
+                }
+                set doubleShots ( value ) {
+                    if ( typeof value == 'number' ) {
+                        this._doubleShots = value;
+                    }
                 }
 
                 get width () {
@@ -1117,8 +1165,8 @@
                     super();
                     this._maxDiameter = 400;
                     let margin = this._maxDiameter * 0.5;
-                    this.x = x || Math.random() * margin + ( canvas.width - 2*margin );
-                    this.y = y || Math.random() * margin + ( canvas.height - 2*margin );
+                    this.x = x || margin + Math.random() * ( canvas.width - 2*margin );
+                    this.y = y || margin + Math.random() * ( canvas.height - 2*margin );
                     this._minDiameter = 10;
                     this._diameter = this.minDiameter;
                     this._startColor = '#332277';
@@ -1206,35 +1254,46 @@
                     super();
                     this.x = x || Math.random() * canvas.width;
                     this.y = y || Math.random() * canvas.height;
-                    this._radius = 16;
+                    this._radius = 26;
                     this.width = this._radius * 2;
                     this._ringColor = '#5555FF';
                     this._dotColor = "#55FF55";
                     this._maxAge = 28000; //ms
-                    this._type = type;
+                    this._type = type; // SHIELD, DOUBLE_SHOT
                 }
                 draw () {
                     this.predraw();
 
                     // Draw Prize 
-                    // dot
+
+                    // dot/icon
                     ctx.beginPath();
-                    ctx.arc(0, 0, this._radius * 0.25, 0, 2 * Math.PI);
-                    ctx.fillStyle = this._dotColor;
-                    ctx.fill();
+                    if ( this._type === "shield" ) {
+                        ctx.arc(0, 0, this._radius * 0.4, 0, 2 * Math.PI);
+                        ctx.strokeStyle = this._dotColor;
+                        ctx.setLineDash([4, 4]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    } else if ( this._type === "doubleShot" ) {
+                        ctx.arc(-this._radius * 0.3, 0, this._radius * 0.25, 0, 2 * Math.PI);
+                        ctx.arc(this._radius * 0.3, 0, this._radius * 0.25, 0, 2 * Math.PI);
+                        ctx.fillStyle = this._dotColor;
+                        ctx.fill();
+                    }
+
                     // rings
                     let pct = ( this.age % 1000 ) / 1000;
                     let pct2 = ( pct + 0.5 ) % 1;
                     ctx.beginPath();
                     ctx.arc(0, 0, this._radius * pct, 0, 2 * Math.PI);
-                    ctx.strokeStyle = this._dotColor;
+                    ctx.strokeStyle = '#0055FF';
                     ctx.stroke();
                     // ctx.moveTo(this._radius * pct2, 0);
                     ctx.beginPath();
                     ctx.arc(0, 0, this._radius * pct2, 0, 2 * Math.PI);
                     ctx.strokeStyle = this._ringColor;
                     ctx.stroke();
-
+                    
                     this.postdraw();
                 }
                 move () {
@@ -1249,14 +1308,15 @@
                             collector.shield.on = true;
                             // add 10hp to the shield
                             collector.shield.hp += 10;
-
                             collector.shield.flashColor("#FFFF00");
-
-                            let burst = new CircleBurst( collector, "#00FF00" );
-                            burst.myArray = Game.graphics;
                             break;
+                        case "doubleShot":
+                            // add 30 doubleShots to collector
+                            collector.doubleShots += 30;
                         default:
                     }
+                    let burst = new CircleBurst( collector, "#00FF00" );
+                    burst.myArray = Game.graphics;
                     this.kill();
                 }
                 get type () {
@@ -1308,6 +1368,51 @@
                 }
             }
 
+             /*
+            ============================================
+
+                        POINTS DISPLAY CLASS
+
+            ============================================
+            */
+            class PointsDisplay extends GameElement {
+                constructor ( x, y, number ) {
+                    console.log("new PointsDisplay()");
+                    super();
+                    this._number = number;
+                    this._numberString = number.toString();
+                    this.x = x;
+                    this.y = y;
+                    this._riseDist = canvas.height * 0.1;
+                    this.rise();
+                }
+                draw () {
+                    this.predraw();
+
+                    // draw points
+                    ctx.font = 'bold 38px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = this._number < 0 ? "#ff3333" : "#4fff33";
+                    ctx.strokeStyle = "black";
+                    // ctx.lineWidth = "10px";
+                    ctx.strokeText( this._numberString, 0, 0 );
+                    ctx.fillText( this._numberString, 0, 0 );
+
+                    this.postdraw();
+                }
+                move () {
+
+                }
+                rise () {
+                    let that = this;
+                    let newY = this.y - this._riseDist;
+                    let completePoints = function () {
+                        that.kill();
+                    }
+                    TweenLite.to( this, 1, { y:newY, ease: Power2.easeIn, onComplete:completePoints });
+                }
+            }
+
             /*          
 
             d8888b.  .d88b.  d888888b d8b   db d888888b       .d88b.  d88888b       
@@ -1331,11 +1436,31 @@
             ============================================
             */
             const canvas = document.getElementById('myCanvas');
-            let windowDims = getWindowDimensions();
-            canvas.width = windowDims.width;
-            canvas.height = windowDims.height;
+            
+            function sizeCanvas () {
+                let targetWidth = 1920;
+                let targetHeight = 1080;
+                let windowDims = getWindowDimensions();
+                let wW = windowDims.width;
+                let wH = windowDims.height;
+                let scale = ( targetWidth + targetHeight ) / ( wW + wH );
+                // let trueArea = wW * wH;
+                // let targetArea = targetWidth * targetHeight;
+                // let scale = Math.max( 1, targetArea / trueArea );
+                console.log(`w/h: ${wW}/${wH}`);
+                console.log(`scale: ${scale}`);
+                canvas.width = wW * scale;
+                canvas.height = wH * scale;
+                canvas.style.transformOrigin = "top left";
+                canvas.style.transform = `scale(${1/scale})`;
+                // window.devicePixelRatio; 
+                ctx.lineWidth = 2 * scale;
+            }
             const ctx = canvas.getContext('2d');
-            let playerShip = new PlayerShip(10,20,100,100,0);
+            sizeCanvas();
+            let px = canvas.width * 0.5 - 5;
+            let py = canvas.height * 0.5 - 10;
+            let playerShip = new PlayerShip(10,20,px,py,0);
             // playerShip.shield.on = false;
             // playerShip.shield.hp += 1000;
             Game.spawnOpponent();
