@@ -82,10 +82,11 @@
                 // Game.timeStep = _timeStep;
                 Game.strokeColor = "#CCCCCC";
                 Game.fillColor = Game.strokeColor;
-                Game.playerColor = "#55CCFF";
+                Game.playerColor = "#333333";
                 Game.opponentColor = "#0055FF";
                 Game.shots = [];
                 Game.opponents = [];
+                Game.geese = [];
                 Game.debris = [];
                 Game.blackHoles = [];
                 Game.prizes = [];
@@ -123,8 +124,8 @@
                         avg = Math.round(avg);
                         let fps = 1000/avg;
                         fps = Math.round(fps);
-                        document.getElementById('fps').innerHTML = (`_fpsArray.length: ${_fpsArray.length}<br>
-                        total: ${total}<br>avg: ${avg}<br>fps: ${fps}`);
+                        let mspf = Math.round(1000/fps);
+                        document.getElementById('fps').innerHTML = (`fps: ${fps}<br>mspf: ${mspf}`); //_fpsArray.length: ${_fpsArray.length}<br>total: ${total}<br>avg: ${avg}<br>
                         _fpsArray.length = 0;
                         _fpsTimer = 0;
                     }
@@ -136,11 +137,15 @@
                     let shieldedOpponents = Game.opponents.filter((x)=>x.shield.on);
                     Game.checkCollisions( shieldedOpponents, Game.opponents );
                     Game.checkCollisions( Game.prizes, Game.opponents );
+                    Game.checkCollisions( Game.shots, Game.geese );
+                    Game.checkCollisions( Game.opponents, Game.geese );
+                    Game.checkCollisions( Game.prizes, Game.geese );
 
                     if ( playerShip.alive ) {
                         playerShip.move();
                         if ( _backgroundOn === 2 ) Game.scrollBackground();
                         Game.flyOpponents();
+                        Game.flyGeese();
                         Game.keepInBounds(playerShip);
                         Game.checkCollisions( Game.shots, [playerShip] );
                         Game.checkCollisions( Game.prizes, [playerShip]);
@@ -150,12 +155,16 @@
                         Game.checkKeys();
                     }
 
+                    Game.applyBlackholeGravity();
+
                     // Move Everything
                     Game.moveGamePieces( Game.shots );
                     Game.moveGamePieces( Game.opponents );
                     Game.moveGamePieces( Game.debris );
                     Game.moveGamePieces( Game.blackHoles );
                     Game.moveGamePieces( Game.prizes );
+                    Game.moveGamePieces( Game.geese );
+
                     
                     // Do the drawing
                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -163,6 +172,7 @@
                     if ( playerShip.alive ) playerShip.draw();
                     Game.drawGamePieces( Game.shots );
                     Game.drawGamePieces( Game.opponents );
+                    Game.drawGamePieces( Game.geese );
                     Game.drawGamePieces( Game.debris );
                     Game.drawGamePieces( Game.prizes );
                     Game.drawGamePieces( Game.graphics );
@@ -267,7 +277,7 @@
                 }
                 Game.flyOpponents = function () {
                     for ( let opponent of Game.opponents ) {
-                        let radToPlayer = Math.atan2( playerShip.y - opponent.y, playerShip.x - opponent.x );
+                        let radToPlayer = radianFromTo( opponent, playerShip );
                         // Get angle diff: opponent-to-player angle vs opponent's facing
                         let deg = degDiff( radToDeg( radToPlayer ), opponent.rotation );
                         if ( Math.abs(deg) < 90 ) {
@@ -281,6 +291,11 @@
                         } else if ( deg < 0 ) {
                             opponent.turnLeft(2);
                         }
+                    }
+                }
+                Game.flyGeese = function () {
+                    for ( let goose of Game.geese ) {
+                        goose.fly();
                     }
                 }
 
@@ -469,8 +484,44 @@
                         let x = endx - xspeed * numSteps;
                         let y = endy - yspeed * numSteps;
                         let diameter = Math.random()*12*0.5;
-                        let debris = new Debris(x,y,xspeed,yspeed,diameter,dur, color);
-                        debris.myArray = Game.debris;
+                        let particle = new Debris(x,y,xspeed,yspeed,diameter,dur, color);
+                        particle.myArray = Game.debris;
+                    }
+                }
+                Game.applyBlackholeGravity = function () {
+                    function pullElement( el, BH ) {
+                        let eventHorizonRadius = BH.width * 3; // 6x radius
+                        let dist = distance ( el, BH );
+                        if ( dist < eventHorizonRadius ) {
+                            let radian = radianFromTo (el,BH);
+                            let pull = 1 - (dist/eventHorizonRadius);
+                            pull *= 0.5;
+                            el.xspeed += Math.cos(radian) * pull;
+                            el.yspeed += Math.sin(radian) * pull;
+                            // if cross center, destroy?
+                        }
+                    }
+                    for ( let BH of Game.blackHoles ) {
+                        
+                        // Player Ship
+                        if ( playerShip.alive ) pullElement( playerShip, BH );
+                        // Geese
+                        for ( let g of Game.geese ) {
+                            pullElement( g, BH );
+                        }
+                        // Opponent Ships
+                        for ( let o of Game.opponents ) {
+                            pullElement( o, BH );
+                        }
+                        // Debris
+                        for ( let d of Game.debris ) {
+                            pullElement( d, BH );
+                        }
+                        // Shots
+                        for ( let s of Game.shots ) {
+                            pullElement( s, BH );
+                        }
+                        // Prizes?
                     }
                 }
 
@@ -649,6 +700,9 @@
                     value = value % 360;
                     this._rot = value;
                 }
+                get radian () {
+                    return degToRad(this._rot);
+                }
 
                 get width () {
                     return this._width || this._diameter;
@@ -684,6 +738,12 @@
                 }
                 get yspeed () {
                     return this._yspeed;
+                }
+
+                get vector () {
+                    let movementAngle = Math.atan2( this.yspeed, this.xspeed );
+                    // if ( movementAngle === undefined ) movementAngle = 0;
+                    return { angle: movementAngle, magnitude: hypotenuse ( this.xspeed, this.yspeed ) };
                 }
 
                 get mass () {
@@ -763,6 +823,11 @@
 
                     ctx.stroke();
 
+                    if ( this._fillColor ) {
+                        ctx.fillStyle = this._fillColor;
+                        ctx.fill();
+                    }
+
                     if ( this._thrust > 0 ) {
                         // Draw thrust
                         ctx.beginPath();
@@ -778,12 +843,32 @@
                         this._shield.draw();
                     }
                     this.postdraw();
+
+                    /*
+
+                    // Show speed vector, for testing
+                    // Show vector text data
+                    ctx.font = '22px sans-serif';
+                    ctx.textAlign = 'left';
+                    let v = this.vector;
+                    let text = `A: ${radToDeg(v.angle.toFixed(2))} \n\rM: ${v.magnitude.toFixed(2)}, S: ${this.speed.toFixed(2)}`;
+                    ctx.fillStyle = "orange";
+                    ctx.fillText( text, this.x + this.width, this.y + this.width );
+                    // Draw the momentum vector
+                    // ctx.strokeStyle = "orange";
+                    ctx.moveTo(this.x, this.y);
+                    let cos = Math.cos( v.angle );
+                    let sin = Math.sin( v.angle );
+                    ctx.lineTo( this.x + cos * v.magnitude * 10, this.y + sin * v.magnitude * 10 );
+                    ctx.strokeStyle = "skyblue";
+                    ctx.stroke();
                     // Show hitpoints, for testing
-                   /* ctx.fillStyle = '#FFFF00';
+                    ctx.fillStyle = '#FFFF00';
                     ctx.font = '28px sans-serif';
                     let hp = this.shield.on ? this.shield.hp : this.hp;
                     ctx.fillText(hp, this.x + 10, this.y - 10 );
-                    */
+                    
+                   */
                 }
                 turnRight ( value ) {
                     let rot = value ? value : 5;
@@ -831,13 +916,16 @@
                         this._lastShotTime = Game.currentTime;
                     }
                 }
-                thrust () {
-                    this._thrust += 2;
+                thrust ( value ) {
+                    value = value != undefined ? value : 2;
+                    this._thrust += value;
+                    if ( this._thrust < 0 ) this._thrust = 0;                    
                     this._thrust = Math.min ( this._thrust, this._maxthrust );
+
                     let radian = degToRad( this.rotation );
                     let xthrust = Math.cos(radian)*this._thrust;
                     let ythrust = Math.sin(radian)*this._thrust;
-                    let inertia = 15;
+                    let inertia = 16;
                     this.xspeed = (this.xspeed * inertia + xthrust) / (inertia+1);
                     this.yspeed = (this.yspeed * inertia + ythrust) / (inertia+1);
                 }
@@ -846,6 +934,7 @@
                     // Deceleration
                     if ( this._thrust > 0 ) {
                         this._thrust -= 1 * Game.frameInterpolation;
+                        if ( this._thrust < 0 ) this._thrust = 0;
                     }
                     // this.xspeed *= 0.99;
                     this.xspeed -= this.xspeed * 0.01 * Game.frameInterpolation;
@@ -872,9 +961,7 @@
                         }
                     }
                 }
-                get radian () {
-                    return degToRad(this.rotation);
-                }
+                
 
                 set liveShots ( value ) {
                     if ( typeof value == 'number' ) {
@@ -905,6 +992,9 @@
 
                 get width () {
                     return this._shield.on ? this._shield.width : this._width;
+                }
+                get speed () {
+                    return this._thrust;
                 }
             }
 
@@ -940,6 +1030,7 @@
                         Game.respawnPlayer();
                         // super.kill();
                         this._alive = false;
+                        this.doubleShots = 0;
                         this.x = 0;
                         this.y = 0;
                     }
@@ -954,6 +1045,293 @@
                 }
                 get alive () {
                     return this._alive;
+                }
+            }
+
+            /*
+            ============================================
+
+                        GOOSE CLASS (AI flies in formation w/ PlayerShip)
+
+            ============================================
+            */
+            class GooseShip extends Ship {
+                constructor (w,h,x,y,rot) {
+                    super (w,h,x,y,rot);
+                    this._maxthrust = 16;
+                    this._maxShots = 5;
+                    this._shotFrequency = 100;
+                    this._shotPower = 10;
+                    this._value = -1;
+                    this._strokeColor = "#FFFFFF";
+                    this._fillColor = "white";
+                    this.hp = this._maxHP = 1;
+                    this._index = 0;
+                    this._leader = playerShip;
+                    this._myOpponents = Game.opponents;
+                    this.targetX;
+                    this.targetY;
+                }
+                draw () {
+
+                    
+
+                    super.draw();
+
+                    /*
+
+                    // draw target XY dot
+                    ctx.beginPath();
+                    ctx.arc(this.targetX, this.targetY, 5, 0, 2*Math.PI);
+                    ctx.fillStyle = "red";
+                    ctx.fill();
+
+                    // draw projected move line from targetXY
+                    ctx.beginPath();
+                    ctx.moveTo(this.targetX, this.targetY);
+                    let endX = this.targetX + Math.cos( this._leader.vector.angle ) * this._leader.vector.magnitude * 10;
+                    let endY = this.targetY + Math.sin( this._leader.vector.angle ) * this._leader.vector.magnitude * 10;
+                    ctx.lineTo( endX, endY );
+                    ctx.strokeStyle = "pink";
+                    ctx.stroke();
+
+                    // draw distances
+                    let distances = [2];
+                    for ( let dist of distances ) {
+                        ctx.beginPath();
+                        ctx.arc(this.targetX, this.targetY, this.width * dist, 0, 2 * Math.PI);
+                        ctx.strokeStyle = "#555";
+                        ctx.setLineDash([8, 4]);
+                        ctx.stroke();
+                    }
+                    ctx.setLineDash([]);
+
+                    // DRAW true target angle
+                    // tA (target angle)
+                    // mA (momentum angle)
+                    // rA (reflected angle - mA reflected in tA)
+                    // ttA (true target angle)
+                    let targetRadian = Math.atan2( this.targetY-this.y, this.targetX-this.x );
+                    let tA = radToDeg ( targetRadian );
+                    let mA = radToDeg( this.vector.angle );
+                    ctx.setLineDash([8, 2]);        
+                    // Draw thrust angle / power
+                    ctx.beginPath();
+                    ctx.moveTo(this.x,this.y);
+                    ctx.lineTo(this.x + Math.cos(this.radian)* this.speed * 10,this.y+Math.sin(this.radian)* this.speed * 10);
+                    ctx.strokeStyle = "red";
+                    ctx.stroke();   
+                    
+                    let targetDistance = hypotenuse( this.targetX-this.x, this.targetY - this.y );
+                    let lineLength = Math.min( targetDistance, 100 );
+                    if ( Math.abs( degDiff(tA,mA) ) < 90 ) {
+                        let rA = tA + addAngles( tA, -mA );
+                        let aDiff = degDiff( rA, tA );
+                        let ttA = addAngles( tA, aDiff*0.5 );
+                        // let ttA = addAngles( tA, rA ) * 0.5;
+                        // Draw angle to target position
+                        ctx.beginPath();
+                        ctx.moveTo(this.x, this.y);
+                        ctx.lineTo(this.targetX, this.targetY);
+                        ctx.strokeStyle = "grey";
+                        ctx.stroke();
+                        // rA
+                        let rR = degToRad( rA );
+                        let cos = Math.cos(rR);
+                        let sin = Math.sin(rR);
+                        // Draw reflected angle (momentum reflected in vector to target)
+                        ctx.beginPath();
+                        ctx.strokeStyle = "skyblue";
+                        ctx.moveTo(this.x,this.y);
+                        ctx.lineTo(this.x + cos*lineLength, this.y + sin*lineLength );
+                        ctx.stroke();
+                        // ttA
+                        let ttR = degToRad( ttA );
+                        cos = Math.cos( ttR );
+                        sin = Math.sin( ttR );
+                        // Draw angle halfway between target and reflection angles.
+                        ctx.beginPath();
+                        ctx.strokeStyle = "yellow";
+                        ctx.moveTo(this.x,this.y);
+                        ctx.lineTo(this.x + cos*lineLength, this.y + sin*lineLength );
+                        ctx.stroke()
+                    } else {
+                        // tA
+                        let cos = Math.cos( targetRadian );
+                        let sin = Math.sin( targetRadian );
+                        ctx.beginPath();
+                        ctx.strokeStyle = "yellow";
+                        ctx.moveTo(this.x,this.y);
+                        ctx.lineTo(this.x + cos*lineLength, this.y + sin*lineLength );
+                        ctx.stroke()
+                    }
+                    ctx.setLineDash([]);
+                    
+                    */
+                }
+                fly () {
+                    this._index = this.myArray.indexOf(this);
+                    let sign = this._index %2 === 0 ? -1 : 1;
+                    let formationdist = this.width + Math.floor( this._index * 0.5 ) * this.width;
+                    let leader = this._leader;
+                    let radian = degToRad( addAngles( leader.rotation, 120 * sign) );
+                    let targetX = this.targetX = leader.x + Math.cos( radian ) * formationdist;
+                    let targetY = this.targetY = leader.y + Math.sin( radian ) * formationdist;
+                    // How many frames away at Goose's current speed is targetXY ?
+                    // move targetXY that many frames at target's momentumXY
+                    let xDiff = targetX - this.x;
+                    let yDiff = targetY - this.y;
+                    let dist = Math.sqrt ( xDiff * xDiff + yDiff * yDiff );
+                    if ( this.vector.magnitude > 0 ) {
+                        let framesAway = dist / this.vector.magnitude;
+                        // console.log(this.vector);
+                        // console.log(`dist: ${dist}\n\rframesAway: ${framesAway}`);
+                        let leadX = Math.cos( this._leader.vector.angle ) * framesAway;
+                        let leadY = Math.sin( this._leader.vector.angle ) * framesAway;
+                        // console.log(`leadX: ${leadX}`);
+                        targetX = this.targetX += leadX;
+                        targetY = this.targetY += leadY;
+                        xDiff = targetX - this.x;
+                        yDiff = targetY - this.y;
+                    }
+                    
+                    let targetRadian = Math.atan2( yDiff, xDiff );
+                    let targetDegree = radToDeg ( targetRadian );
+                    
+                    let mA = radToDeg( this.vector.angle );
+                    if ( Math.abs( degDiff(targetDegree,mA) ) < 90 ) {
+                        // Facing towards targetXY
+                        // tA (target angle)
+                        // mA (momentum angle)
+                        // rA (reflected angle - mA reflected in tA)
+                        // ttA (true target angle)
+                        let tA = targetDegree;
+                        
+                        let rA = tA + addAngles( tA, -mA );
+                        let aDiff = degDiff( rA, tA );
+                        let ttA = addAngles( tA, aDiff*0.5 );
+                        targetDegree = ttA;
+                    }
+                    
+                    if ( dist > this.width * 2 ) {
+                        this._fillColor = "yellow";
+                        this.steer ( targetDegree );
+                        if ( Math.abs( degDiff(targetDegree,this.rotation) ) < 70 ) {
+                            this.thrust();
+                        }
+                    } else { 
+                        this._fillColor = "green";
+                        this.steer( leader.rotation );
+                        if ( leader.speed > this.speed || Math.abs( degDiff(targetDegree,this.rotation) ) < 90) {
+                            this.thrust();
+                        } else if ( this.speed > leader.speed ) {
+                            this.brake();
+                        }
+                        // slide a little towards target...
+                        if ( dist > 5 ) {
+                            let slideDist = dist * 0.05;
+                            this.x += Math.cos( degToRad( targetDegree ) ) * slideDist;
+                            this.y += Math.sin( degToRad( targetDegree ) ) * slideDist;
+                        }
+                    }
+                    // Time to Fire?
+                    for ( let opponent of this._myOpponents ) {
+                        // if opponent is in front of me and close enough
+                        let radToOpp = Math.atan2 ( opponent.y - this.y, opponent.x - this.x );
+                        let oppAngle = degDiff( radToDeg( radToOpp ), this.rotation );
+                        if ( Math.abs( Math.abs( oppAngle ) ) < 30 && distance( opponent, this ) < 700) {
+                            this.shoot();
+                        }
+                    }
+
+                    /*if ( dist > 1 ) {
+                        // slide a little towards target...
+                        this.x += Math.cos( degToRad( targetDegree ) );
+                        this.y += Math.sin( degToRad( targetDegree ) );
+                    }
+                    if ( dist > this.width * 12 ) {
+                        // Long distance away, steer towards target position
+                        this._fillColor = "red";
+                        this.steer ( targetDegree );
+
+                        if ( Math.abs( degDiff( targetDegree, this.rotation ) ) < 90 ){
+                            this.thrust();
+                        }
+                    } else if ( dist > this.width * 5 ) {
+                        this._fillColor = "orange";
+                        if ( leader.speed > this._maxthrust *0.5 ) {
+                            // steer .halfway between targetAngle and leader's rotation
+                            let leaderDegDiff = degDiff( leader.rotation, targetDegree );
+                            targetDegree = addAngles( leaderDegDiff * 0.5, targetDegree );
+                        }
+                        this.steer( targetDegree );
+                        //if ( leader.speed > this.speed ) {
+                            this.thrust();
+                        //}
+                    } else if ( dist > this.width ) {
+                        // Not close enough to target position
+                        // Steer towards it
+                        this._fillColor = "yellow";
+                        if ( leader.speed > this._maxthrust *0.5 ) {
+                            // steer .2 between targetAngle and leader's rotation
+                            let leaderDegDiff = degDiff( leader.rotation, targetDegree );
+                            targetDegree = addAngles( leaderDegDiff * 0.2, targetDegree );
+                        }
+                        this.steer( targetDegree );
+
+                        if ( leader.speed > this.speed || dist > this.width * 2) {
+                            this.thrust();
+                        } else if ( this.speed > leader.speed ) {
+                            this.brake();
+                        }
+                    } else {
+                        this._fillColor = "green";
+                        // In Formation
+                        this.steer( leader.rotation );
+                        
+                        if ( leader.speed > this.speed ) {
+                            this.thrust();
+                        } else if ( this.speed > leader.speed ) {
+                            console.log( `In Formation, speed: ${this.speed}, leaderspeed: ${leader.speed}`);
+                            this.brake();
+                        }
+                    }
+                    */
+                    // this.x = targetX;
+                    // this.y = targetY;
+                    // this.rotation = leader.rotation;
+                }
+                steer ( targetDegree ) {
+                    let degTurn = degDiff( targetDegree, this.rotation );
+                    if ( degTurn > 5 ) {
+                        this.turnRight(10);
+                    } else if ( degTurn < -5 ) {
+                        this.turnLeft(10);
+                    } else if ( degTurn > 0 ) {
+                        this.turnRight( degTurn );
+                    } else if ( degTurn < 0 ) {
+                        this.turnLeft( degTurn );
+                    }
+                }
+                brake () {
+                    if ( this.thrust > 2 ) this.thrust( -1 );
+                }
+                set index ( value ) {
+                    if ( typeof( value ) === "number" ) {
+                        this._index = value;
+                    }
+                }
+                get index () {
+                    return this._index;
+                }
+                
+                set myOpponents ( value ) {
+                    if ( Array.isArray( value) ) {
+                        this._myOpponents = value;
+                    }
+                }
+                get myOpponents () {
+                    return this._myOpponents;
                 }
             }
 
@@ -1222,6 +1600,20 @@
                             this._diameter = this._minDiameter + (this._maxDiameter - this._minDiameter) * this.lifePercent;
                         }
                     }
+                    // generate debris
+                    if ( Math.random() < 0.5 ) {
+                        let dist = this.width*0.5 + Math.random()*this.width * 0.5 + 20;
+                        let rad = Math.random() * (Math.PI * 2);
+                        let x = this.x + Math.cos(rad) * dist;
+                        let y = this.y + Math.sin(rad) * dist; 
+                        let xspeed = -2 + Math.random()*4;
+                        let yspeed = -2 + Math.random()*4;
+                        let lifespan = 300 + this.lifePercent * 500;
+                        let diameter = 3 + Math.random()*3;
+                        let debris = new Debris ( x,y,xspeed,yspeed, diameter, lifespan,'#5566CC' );
+                        debris.myArray = Game.debris;
+                    }
+                    
                 }
                 contract () {
                     // turn into black hole,
@@ -1467,6 +1859,14 @@
             let playerShip = new PlayerShip(10,20,px,py,0);
             // playerShip.shield.on = false;
             // playerShip.shield.hp += 1000;
+            let gooseShip = new GooseShip(10,20,px,py,0);
+            gooseShip.myArray = Game.geese;
+            let gooseShip2 = new GooseShip(10,20,px,py,0);
+            gooseShip2.myArray = Game.geese;
+            let gooseShip3 = new GooseShip(10,20,px,py,0);
+            gooseShip3.myArray = Game.geese;
+            let gooseShip4 = new GooseShip(10,20,px,py,0);
+            gooseShip4.myArray = Game.geese;
             Game.spawnOpponent();
             // Game.spawn ( Ship, Game.opponents );
             Game.start();
@@ -1497,11 +1897,23 @@
             function degToRad (deg) {
                 return deg *  Math.PI / 180; 
             }
+            function addAngles (deg1, deg2) {
+                return ( deg1 + deg2 + 720 ) %360;
+            }
 
             function hypotenuse (a,b){
                 return Math.sqrt(a*a+b*b);
             }
 
+            function distance ( A, B ) {
+                let xDist = A.x - B.x;
+                let yDist = A.y - B.y;
+                return hypotenuse ( xDist, yDist );
+            }
+            function radianFromTo (A,B) {
+                return Math.atan2( B.y - A.y, B.x - A.x );
+            }
+            // console.log(`DEGDIFF(30,90): ${degDiff(30,90)}`);
             function degDiff (deg2, deg1) {
                 // returns signed smallest difference between 2 angles
                 // got this formula from Stack Overflow:
@@ -1599,9 +2011,9 @@
             function intersectionTest ( sprite1, sprite2 ) {
                 const xDiff = sprite2.x - sprite1.x;
                 const yDiff = sprite2.y - sprite1.y;
-                const distSq = xDiff*xDiff + yDiff * yDiff;
+                const dist = xDiff*xDiff + yDiff * yDiff;
                 const radius = (sprite2.width + sprite1.width) * 0.5;
-                return distSq <= radius * radius;
+                return dist <= radius * radius;
             }
 
             /*
