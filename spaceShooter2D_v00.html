@@ -26,6 +26,7 @@
             top: 0;
             left: 0;
             border: 1px solid grey;
+            box-sizing: border-box;
         }
         #score {
             color: white;
@@ -50,11 +51,28 @@
             text-align: left;
             color: green;
         }
+        #message-field {
+            position: absolute;
+            visibility: hidden;
+            
+            text-align: center;
+            color: #CCC;
+            text-shadow: -0.05em 0 0 black, 0.05em 0 0 black, 0 -0.05em 0 black, 0 0.05em 0 black;
+            width: 100vw;
+            top:45%;
+            transform: translateY(-50%);
+            font-size: 4rem;
+            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+            font-weight: bold;
+            letter-spacing: 0.05em;
+            background-color: rgba(168, 168, 100, 0.5);
+            padding: 0.5em;
+        }
     </style>
 </head>
 <body>
-    <p style="color: #CCCC88">
-        TURN: l/r arrows, THRUST: up arrow, FIRE: spacebar
+    <p style="color: #CCCC88; font-family:'Courier New', Courier, monospace;">
+        TURN: <- -> arrows, THRUST: up arrow, FIRE: spacebar
     </p>
     <p id="player-shield-strength"> SHIELD STRENGTH </p>
     <span id="fps">FPS:</span>
@@ -63,6 +81,8 @@
     </span>
     
     <canvas id="myCanvas" width="1000" height="800"></canvas>
+
+    <p id="message-field">Message Field!</p>
 
     <script>
         var AsteroidsNameSpace = (function(){            
@@ -79,6 +99,12 @@
                 let _timeStep = 1000/_fps; // target length of a frame
                 let _pointField = document.getElementById("score");
                 let _backgroundOn = 2;
+                Game.messageField = document.getElementById("message-field");
+                Game.firstPrizeDone = 
+                Game.firstBlackHoleDone = 
+                Game.firstShieldCollected =
+                Game.firstDoubleShotCollected = 
+                Game.firstWingmanCollected = false;
                 // Game.timeStep = _timeStep;
                 Game.strokeColor = "#CCCCCC";
                 Game.fillColor = Game.strokeColor;
@@ -93,7 +119,7 @@
                 Game.graphics = [];
                 Game.currentTime = 0; // Game clock
                 Game.lastLevelIncreaseTime = 0;
-                Game.nextBlackHoleTime = Game.currentTime + 10000;
+                Game.nextBlackHoleTime = Game.currentTime + 15000;
                 Game.nextOpponentTime = Game.currentTime + 5000;
                 Game.nextPrizeTime = Game.currentTime + 11000;
                 Game.maxOpponents = 1;
@@ -180,16 +206,22 @@
                     // Handle spawning
                     if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && !Game.gameOver ) {
                         Game.spawnOpponent();
-                        Game.nextOpponentTime = Game.currentTime + 7000;
+                        Game.nextOpponentTime = Game.currentTime + 10000;
                     }
                     if ( Game.currentTime > Game.nextPrizeTime && Game.prizes.length < Game.maxPrizes && !Game.gameOver ) {
                         Game.spawnPrize();
-                        Game.nextPrizeTime = Game.currentTime + 15000;
+                        Game.nextPrizeTime = Game.currentTime + 13000;
                     }
                     if ( Game.currentTime > Game.nextBlackHoleTime && !Game.gameOver ) {
                         let TempHole = new BlackHole();
                         TempHole.myArray = Game.blackHoles;
-                        Game.nextBlackHoleTime = Game.currentTime + 13000;
+                        Game.nextBlackHoleTime = Game.currentTime + 15000;
+                        if ( !Game.firstBlackHoleDone ) {
+                            setTimeout( function() {
+                                Game.announce( "Fly out of Black Holes" );
+                                Game.firstBlackHoleDone = true;
+                            }, 2000 );
+                        }
                     }
 
                     // Handle level increases
@@ -250,7 +282,7 @@
                         // show Player at x/y
                         playerShip.spawn(x,y);
                     }, duration );
-                    Game.implode( x,y,duration, Game.playerColor );
+                    Game.implode( x,y,duration, "#FFFFFF" );
                 }
                 Game.keepInBounds = function( element ) {
                     if ( element.x > canvas.width ) {
@@ -322,9 +354,16 @@
                     let margin = 50;
                     let x = margin + (canvas.width-2*margin) * Math.random();
                     let y = margin + (canvas.height-2*margin) * Math.random();
-                    let type = Math.random() < 0.5 ? "shield" : "doubleShot";
+                    let prizes = ["shield", "doubleShot", "wingMan"]
+                    let type = prizes[ Math.floor( Math.random() * prizes.length ) ];
                     let testPrize = new Prize( x, y, type );
                     testPrize.myArray = Game.prizes;
+                    if ( !Game.firstPrizeDone ) {
+                        setTimeout( function() {
+                            Game.announce( `Fly into power-ups!`);
+                            Game.firstPrizeDone = true;
+                        }, 2000 );
+                    }
                 }
                 /*
                 Game.spawn = function ( cl, ar ) {
@@ -341,6 +380,7 @@
                 */
                 
                 Game.checkCollisions = function ( groupA, groupB ) {
+                    let collided = false;
                     for ( let A of groupA ) {
                         for ( let B of groupB ) {
                             if ( A != B ) {
@@ -349,9 +389,13 @@
                                 if ( hitTime <= 1 && hitTime >=0 ) {
                                     // hitTime is getting passed on to next function a lot
                                     Game.handleCollision( A, B, hitTime );
+                                    collided = true;
+                                    break;
                                 }
                             }
+                            if ( collided ) break;
                         }
+                        if ( collided ) break;
                     }
                 }
                 
@@ -435,6 +479,12 @@
                 Game.addPoints = function( value ) {
                     Game.score += value;
                     let scoreString = Game.score.toString().padStart(4, '0');
+                    // Find "-", move it to first
+                    if ( scoreString.indexOf( "-" ) !== -1 ) {
+                        // move it to front
+                        scoreString = scoreString.replace( "-", "" );
+                        scoreString = `-${scoreString}`;
+                    }
                     _pointField.innerHTML = scoreString;
                 }
                 Game.explode = function(element) {
@@ -542,6 +592,36 @@
                     document.body.style.backgroundImage = 
                         _backgroundOn !=0 ? "url('images/space_tile_720.jpg')"
                         : "none";
+                }
+
+                Game.announce = function ( text ) {
+                    let duration = 2000;
+                    if ( Game.messageField.style.visibility === "visible" ){
+                        // queue next announcement
+                        let innerText = text;
+                        setTimeout( function() {
+                            Game.announce( text );
+                        }, duration + 50 );
+                        return;
+                    }
+                        if ( !_paused ) {
+                            Game.pause();
+                            setTimeout( function(){
+                                Game.pause();
+                            }, duration );
+                        }
+                        Game.showMessage( text );
+                        setTimeout( function() {
+                            Game.hideMessage();
+                        }, duration );
+                    
+                }
+                Game.showMessage = function ( text ) {
+                    Game.messageField.innerHTML = text;
+                    Game.messageField.style.visibility = "visible";
+                }
+                Game.hideMessage = function () {
+                    Game.messageField.style.visibility = "hidden";
                 }
 
                 Game.checkKeys = function () {
@@ -1056,8 +1136,9 @@
             ============================================
             */
             class GooseShip extends Ship {
-                constructor (w,h,x,y,rot) {
-                    super (w,h,x,y,rot);
+                constructor (x,y,rot) {
+                    super (7,14,x,y,rot);
+
                     this._maxthrust = 16;
                     this._maxShots = 5;
                     this._shotFrequency = 100;
@@ -1214,13 +1295,13 @@
                     }
                     
                     if ( dist > this.width * 2 ) {
-                        this._fillColor = "yellow";
+                        this._fillColor = "blue";
                         this.steer ( targetDegree );
                         if ( Math.abs( degDiff(targetDegree,this.rotation) ) < 70 ) {
                             this.thrust();
                         }
                     } else { 
-                        this._fillColor = "green";
+                        this._fillColor = "darkblue";
                         this.steer( leader.rotation );
                         if ( leader.speed > this.speed || Math.abs( degDiff(targetDegree,this.rotation) ) < 90) {
                             this.thrust();
@@ -1239,7 +1320,10 @@
                         // if opponent is in front of me and close enough
                         let radToOpp = Math.atan2 ( opponent.y - this.y, opponent.x - this.x );
                         let oppAngle = degDiff( radToDeg( radToOpp ), this.rotation );
-                        if ( Math.abs( Math.abs( oppAngle ) ) < 30 && distance( opponent, this ) < 700) {
+                        // Don't fire at your leader
+                        let radToLeader = Math.atan2 ( leader.y - this.y, leader.x - this.x );
+                        let leaderAngle = degDiff( radToDeg( radToLeader ), this.rotation );
+                        if ( Math.abs( oppAngle ) < 30 && distance( opponent, this ) < 1000 && Math.abs( leaderAngle ) > 40 ) {
                             this.shoot();
                         }
                     }
@@ -1655,7 +1739,7 @@
                     this._ringColor = '#5555FF';
                     this._dotColor = "#55FF55";
                     this._maxAge = 28000; //ms
-                    this._type = type; // SHIELD, DOUBLE_SHOT
+                    this._type = type; // SHIELD, DOUBLE_SHOT, WING_MAN
                 }
                 draw () {
                     this.predraw();
@@ -1673,6 +1757,15 @@
                     } else if ( this._type === "doubleShot" ) {
                         ctx.arc(-this._radius * 0.3, 0, this._radius * 0.2, 0, 2 * Math.PI);
                         ctx.arc(this._radius * 0.3, 0, this._radius * 0.2, 0, 2 * Math.PI);
+                        ctx.fillStyle = this._dotColor;
+                        ctx.fill();
+                    } else if ( this._type === "wingMan" ) {
+                        let w = this._radius * 0.15;
+                        let h = this._radius * 0.3;
+                        ctx.moveTo( w, h );
+                        ctx.lineTo( 0-w, h );
+                        ctx.lineTo( 0, 0-h );
+                        ctx.lineTo( w, h );
                         ctx.fillStyle = this._dotColor;
                         ctx.fill();
                     }
@@ -1709,6 +1802,12 @@
                         case "doubleShot":
                             // add 30 doubleShots to collector
                             collector.doubleShots += 30;
+                            break;
+                        case "wingMan":
+                            // add wingman to collector's fleet
+                            let gooseShip = new GooseShip( this.x, this.y, 0 );
+                            gooseShip.myArray = Game.geese;
+                            break;
                         default:
                     }
                     let burst = new CircleBurst( collector, "#00FF00" );
@@ -1857,19 +1956,21 @@
             let px = canvas.width * 0.5 - 5;
             let py = canvas.height * 0.5 - 10;
             let playerShip = new PlayerShip(10,20,px,py,0);
-            // playerShip.shield.on = false;
+            playerShip.shield.on = false;
+            
             // playerShip.shield.hp += 1000;
-            let gooseShip = new GooseShip(10,20,px,py,0);
+           /* let gooseShip = new GooseShip(px,py,0);
             gooseShip.myArray = Game.geese;
-            let gooseShip2 = new GooseShip(10,20,px,py,0);
+            let gooseShip2 = new GooseShip(px,py,0);
             gooseShip2.myArray = Game.geese;
-            let gooseShip3 = new GooseShip(10,20,px,py,0);
+            let gooseShip3 = new GooseShip(px,py,0);
             gooseShip3.myArray = Game.geese;
-            let gooseShip4 = new GooseShip(10,20,px,py,0);
-            gooseShip4.myArray = Game.geese;
+            let gooseShip4 = new GooseShip(px,py,0);
+            gooseShip4.myArray = Game.geese;*/
             Game.spawnOpponent();
             // Game.spawn ( Ship, Game.opponents );
             Game.start();
+            Game.announce("Hello World");
 
             // const triangle1 = new Triangle( 10, 20 );
             // triangle1.x = 100;
