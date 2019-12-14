@@ -61,7 +61,7 @@
             width: 100vw;
             top:45%;
             transform: translateY(-50%);
-            font-size: 4rem;
+            font-size: 4vw;
             font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
             font-weight: bold;
             letter-spacing: 0.05em;
@@ -83,6 +83,7 @@
     <canvas id="myCanvas" width="1000" height="800"></canvas>
 
     <p id="message-field">Message Field!</p>
+
 
     <script>
         var AsteroidsNameSpace = (function(){            
@@ -344,6 +345,7 @@
                     _timeoutId = setTimeout( function() {
                         let opponentShip = new Ship(20,30,x,y,0);
                         opponentShip.strokeColor = Game.opponentColor;
+                        opponentShip.fillColor = "transparent";
                         opponentShip.shieldsOn = false;
                         opponentShip.mass = 0.8;
                         opponentShip.myArray = Game.opponents;
@@ -641,6 +643,9 @@
                     if ( keycode === 80 ) {
                         // 'p' toggle pause
                         Game.pause();
+
+                        // If Announcement is on, how does that affect manual pauses? 
+
                     } else if ( keycode === 83 ) {
                         // 's' play single frame (step)
                         Game.playSingleFrame();
@@ -670,6 +675,21 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             /*          
             ============================================
 
@@ -683,6 +703,7 @@
                     
                     // init
                     this._strokeColor = Game.strokeColor;
+                    this._fillColor = Game.fillColor;
                     this._myArray = null;
                     this._x = x ? x : 0;
                     this._y = y ? y : 0;
@@ -757,6 +778,10 @@
 
                 set strokeColor (value) {
                     this._strokeColor = value;
+                }
+
+                set fillColor (value) {
+                    this._fillColor = value;
                 }
 
                 get x () {
@@ -959,7 +984,7 @@
                     this.rotation -= rot * Game.frameInterpolation;
                 }
                 shoot () {
-                    console.log(`liveshots|maxshots: ${this.liveShots}|${this._maxShots}`);
+                    /* console.log(`liveshots|maxshots: ${this.liveShots}|${this._maxShots}`); */
                     let doubleShot = this.doubleShots > 0;
                     let max = doubleShot ? this._maxShots * 2 : this._maxShots;
                     if ( this.liveShots < max && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
@@ -1095,7 +1120,7 @@
                     this._shotPower = 12;
                     this._value = -1;
                     this._strokeColor = "#FFFFFF";
-                    this._fillColor = Game.playerColor;
+                    this._fillColor = Game.playerColor = "CornflowerBlue";
                     this.hp = this._maxHP = 1;
                 }
                 draw () {
@@ -1256,8 +1281,10 @@
                     let formationdist = this.width + Math.floor( this._index * 0.5 ) * this.width;
                     let leader = this._leader;
                     let radian = degToRad( addAngles( leader.rotation, 120 * sign) );
+
                     let targetX = this.targetX = leader.x + Math.cos( radian ) * formationdist;
                     let targetY = this.targetY = leader.y + Math.sin( radian ) * formationdist;
+
                     // How many frames away at Goose's current speed is targetXY ?
                     // move targetXY that many frames at target's momentumXY
                     let xDiff = targetX - this.x;
@@ -1265,11 +1292,8 @@
                     let dist = Math.sqrt ( xDiff * xDiff + yDiff * yDiff );
                     if ( this.vector.magnitude > 0 ) {
                         let framesAway = dist / this.vector.magnitude;
-                        // console.log(this.vector);
-                        // console.log(`dist: ${dist}\n\rframesAway: ${framesAway}`);
                         let leadX = Math.cos( this._leader.vector.angle ) * framesAway;
                         let leadY = Math.sin( this._leader.vector.angle ) * framesAway;
-                        // console.log(`leadX: ${leadX}`);
                         targetX = this.targetX += leadX;
                         targetY = this.targetY += leadY;
                         xDiff = targetX - this.x;
@@ -1295,13 +1319,13 @@
                     }
                     
                     if ( dist > this.width * 2 ) {
-                        this._fillColor = "blue";
+                        this._fillColor = "yellow";
                         this.steer ( targetDegree );
                         if ( Math.abs( degDiff(targetDegree,this.rotation) ) < 70 ) {
                             this.thrust();
                         }
                     } else { 
-                        this._fillColor = "darkblue";
+                        this._fillColor = "MidnightBlue";
                         this.steer( leader.rotation );
                         if ( leader.speed > this.speed || Math.abs( degDiff(targetDegree,this.rotation) ) < 90) {
                             this.thrust();
@@ -1531,15 +1555,34 @@
                     this.width = 5;
                     this.height = 5;
                     this._fillColor = "#FFFFFF";
+                    this._positions = [];
+                    this._maxPositions = 10;
                     // console.log("Shot constructor(), mass: "+this.mass);
                 }
                 move () {
+                    // store position for trail
+                    this._positions.push( {x:this.x,y:this.y} );
+                    // get rid of first item
+                    if (this._positions.length > this._maxPositions) {
+                        this._positions.shift();
+                    }
+
                     super.move();
+                    
                     if ( Game.currentTime >= this._startTime + this._lifeSpan ) {
                         this.kill();
                     }
                 }
                 draw () {
+                    // draw trail
+                    for (var i = 0; i < this._positions.length; i++) {
+                        var ratio = (i + 1) / this._positions.length;
+                        
+                        ctx.beginPath();
+                        ctx.arc(this._positions[i].x, this._positions[i].y, this.width * 0.5, 0, 2 * Math.PI, true);
+                        ctx.fillStyle = "rgba(0, 255, 200, " + ratio * 0.5 + ")";
+                        ctx.fill();
+                    }
                     // Draw a circle
                     // glow
                     ctx.beginPath();
@@ -1601,6 +1644,7 @@
                     }
                 }
                 draw () {
+
                     // Draw a circle
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.width * 0.5, 0, 2 * Math.PI);
