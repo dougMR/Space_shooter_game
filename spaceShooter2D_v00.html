@@ -14,14 +14,17 @@
     <script
     src="js/TweenLite.min.js"
     ></script>
+    <script
+    src="js/stackBlur.js"
+    ></script>
     <style>
         body {
             background-color: #111;
             background-image: url('images/space_tile_720.jpg');
             margin: 0;
-            padding: 0;
+            padding-left: 10px;
         }
-        #myCanvas {
+        #myCanvas, #backCanvas {
             position: absolute;
             top: 0;
             left: 0;
@@ -35,6 +38,7 @@
             font-weight: bold;
             position: absolute;
             right: 1rem;
+            top: 1rem;
             text-align: right;
         }
         #fps, #player-shield-strength {
@@ -42,7 +46,7 @@
             font-family: sans-serif;
             color: #005500;
             font-weight: normal;
-            position: absolute;
+            position: relative;
             left: 0;
             text-align: right;
         }
@@ -58,9 +62,10 @@
             text-align: center;
             color: #CCC;
             text-shadow: -0.05em 0 0 black, 0.05em 0 0 black, 0 -0.05em 0 black, 0 0.05em 0 black;
-            width: 100vw;
+            /* width: 100vw; */
             top:45%;
-            transform: translateY(-50%);
+            transform: translate(-50%, -50%);
+            left:50%;
             font-size: 4vw;
             font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
             font-weight: bold;
@@ -79,7 +84,7 @@
     <span id="score">
         00
     </span>
-    
+    <canvas id="backCanvas" width="1000" height="800"></canvas>
     <canvas id="myCanvas" width="1000" height="800"></canvas>
 
     <p id="message-field">Message Field!</p>
@@ -205,25 +210,27 @@
                     Game.drawGamePieces( Game.graphics );
 
                     // Handle spawning
-                    if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && !Game.gameOver ) {
-                        Game.spawnOpponent();
-                        Game.nextOpponentTime = Game.currentTime + 10000;
-                    }
+                    
+                    // if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && !Game.gameOver ) {
+                    //     Game.spawnOpponent();
+                    //     Game.nextOpponentTime = Game.currentTime + 10000;
+                    // }
                     if ( Game.currentTime > Game.nextPrizeTime && Game.prizes.length < Game.maxPrizes && !Game.gameOver ) {
                         Game.spawnPrize();
                         Game.nextPrizeTime = Game.currentTime + 13000;
                     }
-                    if ( Game.currentTime > Game.nextBlackHoleTime && !Game.gameOver ) {
-                        let TempHole = new BlackHole();
-                        TempHole.myArray = Game.blackHoles;
-                        Game.nextBlackHoleTime = Game.currentTime + 15000;
-                        if ( !Game.firstBlackHoleDone ) {
-                            setTimeout( function() {
-                                Game.announce( "Fly out of Black Holes" );
-                                Game.firstBlackHoleDone = true;
-                            }, 2000 );
-                        }
-                    }
+                    // if ( Game.currentTime > Game.nextBlackHoleTime && !Game.gameOver ) {
+                    //     let TempHole = new BlackHole();
+                    //     TempHole.myArray = Game.blackHoles;
+                    //     Game.nextBlackHoleTime = Game.currentTime + 30000;
+                    //     if ( !Game.firstBlackHoleDone ) {
+                    //         setTimeout( function() {
+                    //             Game.announce( "Fly out of Black Holes" );
+                    //             Game.firstBlackHoleDone = true;
+                    //         }, 2000 );
+                    //     }
+                    // }
+                    
 
                     // Handle level increases
                     let tempLevelUpTime = 60000;
@@ -388,8 +395,8 @@
                             if ( A != B ) {
                                 // in case element belongs to two groups (like opponent and shielded opponent)
                                 let hitTime = Game.checkCollision ( A, B );
-                                if ( hitTime <= 1 && hitTime >=0 ) {
-                                    // hitTime is getting passed on to next function a lot
+                                if ( hitTime >=0 && hitTime <= 1 ) {
+                                    // hitTime is getting passed on to handleCollision function a lot
                                     Game.handleCollision( A, B, hitTime );
                                     collided = true;
                                     break;
@@ -626,6 +633,8 @@
                     Game.messageField.style.visibility = "hidden";
                 }
 
+                // Key Handling v
+
                 Game.checkKeys = function () {
                     for ( let key of Game.keys ) {
                         if ( key && key.isDown && key.downFunc ) {
@@ -799,10 +808,10 @@
                 }
 
                 get rotation () {
-                    return this._rot;
+                    return constrainDegree ( this._rot );
                 }
                 set rotation ( value ) {
-                    value = value % 360;
+                    value = constrainDegree( value );
                     this._rot = value;
                 }
                 get radian () {
@@ -902,7 +911,7 @@
                     this._lastShotTime = 0;
                     this._liveShots = 0;
                     this._maxShots = 4;
-                    this._shotFrequency = 100;
+                    this._shotFrequency = 200;
                     this._shotPower = 10;
                     this._xspeed = 0;
                     this._yspeed = 0;
@@ -911,7 +920,7 @@
                     
                     this._shipWidth = w;
                     this._shield = new Shield( this._width );
-                    this._shield.on = true;
+                    this._shield.on = false;
                     this._doubleShots = 0;
                 }
                 draw () {
@@ -949,38 +958,38 @@
                     }
                     this.postdraw();
 
-                    /*
-
-                    // Show speed vector, for testing
-                    // Show vector text data
-                    ctx.font = '22px sans-serif';
-                    ctx.textAlign = 'left';
-                    let v = this.vector;
-                    let text = `A: ${radToDeg(v.angle.toFixed(2))} \n\rM: ${v.magnitude.toFixed(2)}, S: ${this.speed.toFixed(2)}`;
-                    ctx.fillStyle = "orange";
-                    ctx.fillText( text, this.x + this.width, this.y + this.width );
-                    // Draw the momentum vector
-                    // ctx.strokeStyle = "orange";
-                    ctx.moveTo(this.x, this.y);
-                    let cos = Math.cos( v.angle );
-                    let sin = Math.sin( v.angle );
-                    ctx.lineTo( this.x + cos * v.magnitude * 10, this.y + sin * v.magnitude * 10 );
-                    ctx.strokeStyle = "skyblue";
-                    ctx.stroke();
-                    // Show hitpoints, for testing
-                    ctx.fillStyle = '#FFFF00';
-                    ctx.font = '28px sans-serif';
-                    let hp = this.shield.on ? this.shield.hp : this.hp;
-                    ctx.fillText(hp, this.x + 10, this.y - 10 );
                     
-                   */
+
+                    // // Show speed vector, for testing
+                    // // Show vector text data
+                    // ctx.font = '16px sans-serif';
+                    // ctx.textAlign = 'left';
+                    // let v = this.vector;
+                    // let text = `A: ${radToDeg(v.angle).toFixed(2)} \n\rM: ${v.magnitude.toFixed(2)}, S: ${this.speed.toFixed(2)}`;
+                    // ctx.fillStyle = "orange";
+                    // ctx.fillText( text, this.x + this.width, this.y + this.width );
+                    // // Draw the momentum vector
+                    // // ctx.strokeStyle = "orange";
+                    // ctx.moveTo(this.x, this.y);
+                    // let cos = Math.cos( v.angle );
+                    // let sin = Math.sin( v.angle );
+                    // ctx.lineTo( this.x + cos * v.magnitude * 10, this.y + sin * v.magnitude * 10 );
+                    // ctx.strokeStyle = "skyblue";
+                    // ctx.stroke();
+                    // // Show hitpoints, for testing
+                    // ctx.fillStyle = '#FFFF00';
+                    // ctx.font = '16px sans-serif';
+                    // let hp = this.shield.on ? this.shield.hp : this.hp;
+                    // ctx.fillText(hp, this.x + 10, this.y - 10 );
+                    
+                   
                 }
                 turnRight ( value ) {
-                    let rot = value ? value : 5;
+                    let rot = value ? value : 4;
                     this.rotation += rot * Game.frameInterpolation;
                 }
                 turnLeft ( value ) {
-                    let rot = value ? value : 5;
+                    let rot = value ? value : 4;
                     this.rotation -= rot * Game.frameInterpolation;
                 }
                 shoot () {
@@ -1095,6 +1104,9 @@
                     }
                 }
 
+                get shipWidth () {
+                    return this._width;
+                }
                 get width () {
                     return this._shield.on ? this._shield.width : this._width;
                 }
@@ -1116,11 +1128,11 @@
                     this._maxthrust = 12;
                     this._alive = true;
                     this._maxShots = 8;
-                    this._shotFrequency = 80;
+                    // this._shotFrequency = 200;
                     this._shotPower = 12;
                     this._value = -1;
                     this._strokeColor = "#FFFFFF";
-                    this._fillColor = Game.playerColor = "CornflowerBlue";
+                    this._fillColor = Game.playerColor = "darkblue";
                     this.hp = this._maxHP = 1;
                 }
                 draw () {
@@ -1164,7 +1176,7 @@
                 constructor (x,y,rot) {
                     super (7,14,x,y,rot);
 
-                    this._maxthrust = 16;
+                    this._maxthrust = 14;
                     this._maxShots = 5;
                     this._shotFrequency = 100;
                     this._shotPower = 10;
@@ -1173,18 +1185,45 @@
                     this._fillColor = "white";
                     this.hp = this._maxHP = 1;
                     this._index = 0;
-                    this._leader = playerShip;
                     this._myOpponents = Game.opponents;
                     this.targetX;
                     this.targetY;
+                    this._leader = playerShip;
+                    this._degToTarget = 0;
                 }
                 draw () {
 
                     
 
                     super.draw();
-
                     /*
+                    // Show degrees to target, for testing
+                    ctx.fillStyle = '#FFFF00';
+                    ctx.font = '14px sans-serif';
+                    ctx.fillText( `tA: ${this._degToTarget}, this.rot: ${this.rotation}`, this.x + 20, this.y + 50 );
+
+                    // Set formation XY
+                    let leaderWidth = this._leader.shipWidth;
+                    let sign = this._index %2 === 0 ? -1 : 1;
+                    let formationdist = leaderWidth*4 + Math.floor( this._index * 0.5 ) * leaderWidth*4;
+                    let leaderRadian = degToRad( addAngles( this._leader.rotation, 120 * sign) );
+
+                    let dotX = this._leader.x + Math.cos( leaderRadian ) * formationdist;
+                    let dotY = this._leader.y + Math.sin( leaderRadian ) * formationdist;
+                    // draw formation XY dot
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, 5, 0, 2*Math.PI);
+                    ctx.fillStyle = "orange";
+                    ctx.fill();
+
+                    // draw line to target XY
+                    ctx.beginPath();
+                    ctx.moveTo(dotX, dotY);
+                    ctx.strokeStyle = "#ff7252";
+                    ctx.lineTo(this.targetX, this.targetY);
+                    ctx.setLineDash([2,12]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
 
                     // draw target XY dot
                     ctx.beginPath();
@@ -1202,7 +1241,7 @@
                     ctx.stroke();
 
                     // draw distances
-                    let distances = [2];
+                    let distances = [3, 2];
                     for ( let dist of distances ) {
                         ctx.beginPath();
                         ctx.arc(this.targetX, this.targetY, this.width * dist, 0, 2 * Math.PI);
@@ -1229,18 +1268,23 @@
                     ctx.stroke();   
                     
                     let targetDistance = hypotenuse( this.targetX-this.x, this.targetY - this.y );
+                    let framesToTarget = targetDistance / this.vector.magnitude;
+                    ctx.fillStyle = '#FFCC00';
+                    ctx.font = '14px sans-serif';
+                    ctx.fillText( `tD: ${targetDistance} :: frames-to-target: ${framesToTarget}`, this.x + 20, this.y + 70 );
                     let lineLength = Math.min( targetDistance, 100 );
+                    
+                    let rA = addAngles(tA, degDiff( tA, mA ));
+                    let aDiff = degDiff( rA, tA );
+                    let ttA = addAngles( tA, aDiff*0.5 );
+                    // let ttA = addAngles( tA, rA ) * 0.5;
+                    // Draw angle to target position
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.targetX, this.targetY);
+                    ctx.strokeStyle = "green";
+                    ctx.stroke();
                     if ( Math.abs( degDiff(tA,mA) ) < 90 ) {
-                        let rA = tA + addAngles( tA, -mA );
-                        let aDiff = degDiff( rA, tA );
-                        let ttA = addAngles( tA, aDiff*0.5 );
-                        // let ttA = addAngles( tA, rA ) * 0.5;
-                        // Draw angle to target position
-                        ctx.beginPath();
-                        ctx.moveTo(this.x, this.y);
-                        ctx.lineTo(this.targetX, this.targetY);
-                        ctx.strokeStyle = "grey";
-                        ctx.stroke();
                         // rA
                         let rR = degToRad( rA );
                         let cos = Math.cos(rR);
@@ -1257,7 +1301,7 @@
                         sin = Math.sin( ttR );
                         // Draw angle halfway between target and reflection angles.
                         ctx.beginPath();
-                        ctx.strokeStyle = "yellow";
+                        ctx.strokeStyle = "orange";
                         ctx.moveTo(this.x,this.y);
                         ctx.lineTo(this.x + cos*lineLength, this.y + sin*lineLength );
                         ctx.stroke()
@@ -1271,74 +1315,107 @@
                         ctx.lineTo(this.x + cos*lineLength, this.y + sin*lineLength );
                         ctx.stroke()
                     }
-                    ctx.setLineDash([]);
                     
+                    
+                    ctx.setLineDash([]);
                     */
                 }
                 fly () {
+                    // Set Target XY
                     this._index = this.myArray.indexOf(this);
                     let sign = this._index %2 === 0 ? -1 : 1;
-                    let formationdist = this.width + Math.floor( this._index * 0.5 ) * this.width;
+                    let leaderWidth = this._leader.shipWidth;
+                    let formationdist = leaderWidth*4 + Math.floor( this._index * 0.5 ) * leaderWidth*4;
                     let leader = this._leader;
-                    let radian = degToRad( addAngles( leader.rotation, 120 * sign) );
+                    let leaderRadian = degToRad( addAngles( leader.rotation, 120 * sign) );
 
-                    let targetX = this.targetX = leader.x + Math.cos( radian ) * formationdist;
-                    let targetY = this.targetY = leader.y + Math.sin( radian ) * formationdist;
-
+                    let targetX = this.targetX = leader.x + Math.cos( leaderRadian ) * formationdist;
+                    let targetY = this.targetY = leader.y + Math.sin( leaderRadian ) * formationdist;
+                    //
                     // How many frames away at Goose's current speed is targetXY ?
                     // move targetXY that many frames at target's momentumXY
                     let xDiff = targetX - this.x;
                     let yDiff = targetY - this.y;
-                    let dist = Math.sqrt ( xDiff * xDiff + yDiff * yDiff );
-                    if ( this.vector.magnitude > 0 ) {
-                        let framesAway = dist / this.vector.magnitude;
-                        let leadX = Math.cos( this._leader.vector.angle ) * framesAway;
-                        let leadY = Math.sin( this._leader.vector.angle ) * framesAway;
+                    let targetDist = Math.sqrt ( xDiff * xDiff + yDiff * yDiff );
+                    let framesAway = targetDist / this.vector.magnitude;
+                    if ( targetDist > this.shipWidth * 4 && ( this.vector.magnitude > 1 || leader.vector.magnitude > 1 ) ) {
+                        
+                        let leadX = Math.cos( this._leader.vector.angle ) * framesAway*leader.vector.magnitude;
+                        let leadY = Math.sin( this._leader.vector.angle ) * framesAway*leader.vector.magnitude;
+                        console.log(`framesAway: ${framesAway}\nleadX,Y: ${leadX},${leadY}`);
                         targetX = this.targetX += leadX;
                         targetY = this.targetY += leadY;
                         xDiff = targetX - this.x;
                         yDiff = targetY - this.y;
+                        targetDist = Math.sqrt ( xDiff * xDiff + yDiff * yDiff );
                     }
-                    
                     let targetRadian = Math.atan2( yDiff, xDiff );
-                    let targetDegree = radToDeg ( targetRadian );
+                    let degreesToTarget = radToDeg ( targetRadian );                    
                     
                     let mA = radToDeg( this.vector.angle );
-                    if ( Math.abs( degDiff(targetDegree,mA) ) < 90 ) {
+                    if ( this.vector.magnitude > 1 && Math.abs( degDiff(degreesToTarget, mA) ) < 90 ) { //
                         // Facing towards targetXY
                         // tA (target angle)
                         // mA (momentum angle)
                         // rA (reflected angle - mA reflected in tA)
                         // ttA (true target angle)
-                        let tA = targetDegree;
                         
-                        let rA = tA + addAngles( tA, -mA );
+                        let tA = degreesToTarget;
+                        let rA = addAngles( tA, degDiff( tA, mA ) );
                         let aDiff = degDiff( rA, tA );
                         let ttA = addAngles( tA, aDiff*0.5 );
-                        targetDegree = ttA;
+                        console.log(
+                            `mA: ${mA}\n
+                            degToTar: ${degreesToTarget}\n
+                            ta: ${tA}\n
+                            degDiff(tA,mA): ${degDiff( tA, mA )}\n
+                            ra: ${rA}\n
+                            aDiff: ${aDiff}\n
+                            ttA: ${ttA}`);
+                        degreesToTarget = ttA;
+                        // this._fillColor = "skyBlue";
+                    } else {
+                        // this._fillColor = "yellow";
                     }
                     
-                    if ( dist > this.width * 2 ) {
-                        this._fillColor = "yellow";
-                        this.steer ( targetDegree );
-                        if ( Math.abs( degDiff(targetDegree,this.rotation) ) < 70 ) {
-                            this.thrust();
-                        }
-                    } else { 
-                        this._fillColor = "MidnightBlue";
-                        this.steer( leader.rotation );
-                        if ( leader.speed > this.speed || Math.abs( degDiff(targetDegree,this.rotation) ) < 90) {
-                            this.thrust();
-                        } else if ( this.speed > leader.speed ) {
-                            this.brake();
-                        }
-                        // slide a little towards target...
-                        if ( dist > 5 ) {
-                            let slideDist = dist * 0.05;
-                            this.x += Math.cos( degToRad( targetDegree ) ) * slideDist;
-                            this.y += Math.sin( degToRad( targetDegree ) ) * slideDist;
-                        }
+                    this._degToTarget = degreesToTarget;
+                    let mAtoTargetDiff = Math.abs(degDiff(degreesToTarget, mA));
+                    let rotToTargetDiff = Math.abs(degDiff(degreesToTarget, this.rotation));
+
+                    if ( rotToTargetDiff < 70 &&
+                        ( mAtoTargetDiff > 90 ||  this.vector.magnitude < targetDist / 10 )
+                    ) { // 
+                        this.thrust();
+                    } else if ( this.speed > leader.speed ) {
+                        this.brake();
                     }
+                    let targetDegrees = degreesToTarget;
+
+                    if ( targetDist > this.shipWidth * 30 ) {
+                        this._fillColor = "yellow";
+                        // if ( Math.abs( degDiff(degreesToTarget,this.rotation) ) < 70 ) {
+                        //     this.thrust();
+                        // }
+                        // this.steer( degreesToTarget );
+                    } else if ( targetDist < this.shipWidth * 20 ) {
+                        this._fillColor = "orange";
+                        // slide a little towards target...
+                        //if ( targetDist > 5 || Math.abs( degDiff( degreesToTarget, this.rotation )) < 15 ) {
+                            let slideDist = Math.min( this.shipWidth, targetDist * 0.07);
+                            this.x += Math.cos( degToRad( degreesToTarget ) ) * slideDist;
+                            this.y += Math.sin( degToRad( degreesToTarget ) ) * slideDist;
+                        //}
+                        targetDegrees = leader.rotation;
+                        // if ( leader.vector.magnitude > this.vector.magnitude ) {
+                        //     this.thrust();
+                        // }
+                        
+                    } else { 
+                        this._fillColor = "red";
+                    }
+                    this.steer( targetDegrees );
+
+
                     // Time to Fire?
                     for ( let opponent of this._myOpponents ) {
                         // if opponent is in front of me and close enough
@@ -1354,40 +1431,40 @@
 
                     /*if ( dist > 1 ) {
                         // slide a little towards target...
-                        this.x += Math.cos( degToRad( targetDegree ) );
-                        this.y += Math.sin( degToRad( targetDegree ) );
+                        this.x += Math.cos( degToRad( degreesToTarget ) );
+                        this.y += Math.sin( degToRad( degreesToTarget ) );
                     }
-                    if ( dist > this.width * 12 ) {
+                    if ( dist > this.shipWidth * 12 ) {
                         // Long distance away, steer towards target position
                         this._fillColor = "red";
-                        this.steer ( targetDegree );
+                        this.steer ( degreesToTarget );
 
-                        if ( Math.abs( degDiff( targetDegree, this.rotation ) ) < 90 ){
+                        if ( Math.abs( degDiff( degreesToTarget, this.rotation ) ) < 90 ){
                             this.thrust();
                         }
-                    } else if ( dist > this.width * 5 ) {
+                    } else if ( dist > this.shipWidth * 5 ) {
                         this._fillColor = "orange";
                         if ( leader.speed > this._maxthrust *0.5 ) {
                             // steer .halfway between targetAngle and leader's rotation
-                            let leaderDegDiff = degDiff( leader.rotation, targetDegree );
-                            targetDegree = addAngles( leaderDegDiff * 0.5, targetDegree );
+                            let leaderDegDiff = degDiff( leader.rotation, degreesToTarget );
+                            degreesToTarget = addAngles( leaderDegDiff * 0.5, degreesToTarget );
                         }
-                        this.steer( targetDegree );
+                        this.steer( degreesToTarget );
                         //if ( leader.speed > this.speed ) {
                             this.thrust();
                         //}
-                    } else if ( dist > this.width ) {
+                    } else if ( dist > this.shipWidth ) {
                         // Not close enough to target position
                         // Steer towards it
                         this._fillColor = "yellow";
                         if ( leader.speed > this._maxthrust *0.5 ) {
                             // steer .2 between targetAngle and leader's rotation
-                            let leaderDegDiff = degDiff( leader.rotation, targetDegree );
-                            targetDegree = addAngles( leaderDegDiff * 0.2, targetDegree );
+                            let leaderDegDiff = degDiff( leader.rotation, degreesToTarget );
+                            degreesToTarget = addAngles( leaderDegDiff * 0.2, degreesToTarget );
                         }
-                        this.steer( targetDegree );
+                        this.steer( degreesToTarget );
 
-                        if ( leader.speed > this.speed || dist > this.width * 2) {
+                        if ( leader.speed > this.speed || dist > this.shipWidth * 2) {
                             this.thrust();
                         } else if ( this.speed > leader.speed ) {
                             this.brake();
@@ -1409,8 +1486,8 @@
                     // this.y = targetY;
                     // this.rotation = leader.rotation;
                 }
-                steer ( targetDegree ) {
-                    let degTurn = degDiff( targetDegree, this.rotation );
+                steer ( deg ) {
+                    let degTurn = degDiff( deg, this.rotation );
                     if ( degTurn > 5 ) {
                         this.turnRight(10);
                     } else if ( degTurn < -5 ) {
@@ -1850,6 +1927,7 @@
                         case "wingMan":
                             // add wingman to collector's fleet
                             let gooseShip = new GooseShip( this.x, this.y, 0 );
+                            gooseShip.shield.on = false;
                             gooseShip.myArray = Game.geese;
                             break;
                         default:
@@ -1975,6 +2053,7 @@
             ============================================
             */
             const canvas = document.getElementById('myCanvas');
+            const backCanvas = document.getElementById('backCanvas');
             
             function sizeCanvas () {
                 let targetWidth = 1920;
@@ -1982,35 +2061,84 @@
                 let windowDims = getWindowDimensions();
                 let wW = windowDims.width;
                 let wH = windowDims.height;
-                let scale = ( targetWidth + targetHeight ) / ( wW + wH );
+                let scale = 0.5 + 0.5 * ( targetWidth + targetHeight ) / ( wW + wH ); // = 1
                 // let trueArea = wW * wH;
                 // let targetArea = targetWidth * targetHeight;
                 // let scale = Math.max( 1, targetArea / trueArea );
                 console.log(`w/h: ${wW}/${wH}`);
                 console.log(`scale: ${scale}`);
-                canvas.width = wW * scale;
-                canvas.height = wH * scale;
-                canvas.style.transformOrigin = "top left";
-                canvas.style.transform = `scale(${1/scale})`;
+                backCanvas.width = canvas.width = wW * scale;
+                backCanvas.height = canvas.height = wH * scale;
+                backCanvas.style.transformOrigin = canvas.style.transformOrigin = "top left";
+                backCanvas.style.transform = canvas.style.transform = `scale(${1/scale})`;
                 // window.devicePixelRatio; 
-                ctx.lineWidth = 2 * scale;
+                backCtx.lineWidth = ctx.lineWidth = 2 * scale;
             }
             const ctx = canvas.getContext('2d');
+            const backCtx = backCanvas.getContext('2d');
+            
             sizeCanvas();
+            let x = 200;
+            let y = 100;
+            function drawRect() {
+                x+=5;
+                y+=5;
+                backCtx.beginPath();
+                backCtx.rect(x, y, 300, 300);
+                backCtx.strokeStyle = '#FF0000';
+                backCtx.stroke();
+                
+            }
+            drawRect();
+            let times = 0;
+            let tID = setInterval(function(){
+                
+                drawRect();
+                fadeBGctx();
+                times++;
+                if (times>120) clearInterval(tID);
+            }, 30);
+            function fadeBGctx() {
+                console.log('fadeBGctx()')
+                // let imgData = backCtx.getImageData(0, 0, backCanvas.width, backCanvas.height);
+                
+                let img = backCtx.getImageData(0, 0, backCanvas.width, backCanvas.height);
+                backCtx.clearRect(0, 0, backCanvas.width, backCanvas.height);
+                // backCtx.globalAlpha = 0.5;
+                // backCtx.putImageData(imgData, 0, 0);
+
+                // get the image data object
+                // var image = ctx.getImageData(0, 0, 500, 200);
+                // get the image data values 
+                let imageData = img.data;
+                
+                // set every fourth value to 50
+                for(let i=3; i < imageData.length; i+=4){  
+                    imageData[i] = imageData[i] * 0.9;
+                }
+                // after the manipulation, reset the data
+                // img.data = imageData;
+                // and put the imagedata back to the canvas
+                // backCtx.filter = 'blur(5)';
+                backCtx.putImageData(img, 0, 0);
+                stackBlurCanvasRGBA("backCanvas", 0, 0, backCanvas.width, backCanvas.height, 9);
+                console.log(`done fadeBGctx`);
+            }
+            
             let px = canvas.width * 0.5 - 5;
             let py = canvas.height * 0.5 - 10;
             let playerShip = new PlayerShip(10,20,px,py,0);
             playerShip.shield.on = false;
             
-            // playerShip.shield.hp += 1000;
-           /* let gooseShip = new GooseShip(px,py,0);
+            playerShip.shield.hp += 1000;
+            let gooseShip = new GooseShip(px,py,0);
             gooseShip.myArray = Game.geese;
             let gooseShip2 = new GooseShip(px,py,0);
             gooseShip2.myArray = Game.geese;
             let gooseShip3 = new GooseShip(px,py,0);
             gooseShip3.myArray = Game.geese;
             let gooseShip4 = new GooseShip(px,py,0);
-            gooseShip4.myArray = Game.geese;*/
+            gooseShip4.myArray = Game.geese;
             Game.spawnOpponent();
             // Game.spawn ( Ship, Game.opponents );
             Game.start();
@@ -2035,15 +2163,24 @@
 
             ============================================
             */
+            function constrainDegree (deg) {
+                // console.log(`${deg}-mod-360: ${Math.round(mod( (deg + 180), 360 ) -180)}
+                //            vs${deg}-%-360: ${Math.round( (deg+180)% 360 - 180)}`);
+                
+                function mod (a,n) {
+                    return a - Math.floor(a/n) * n; //a % n; //
+                } 
+                return mod( (deg+180), 360 ) -180; // is (diff+180) % 360
+            }
 
             function radToDeg (rad) {
-                return rad * 180 / Math.PI;
+                return constrainDegree (rad * 180 / Math.PI);
             }
             function degToRad (deg) {
                 return deg *  Math.PI / 180; 
             }
             function addAngles (deg1, deg2) {
-                return ( deg1 + deg2 + 720 ) %360;
+                return constrainDegree ( deg1 + deg2 );
             }
 
             function hypotenuse (a,b){
@@ -2064,10 +2201,11 @@
                 // got this formula from Stack Overflow:
                 // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
                 let diff = deg2 - deg1;
-                diff = mod( (diff + 180), 360 ) -180; // is (diff+180) % 360
-                function mod (a,n) {
-                    return a - Math.floor(a/n) * n;
-                }
+                // diff = mod( (diff + 180), 360 ) -180; // is (diff+180) % 360
+                diff = constrainDegree (diff);
+                // function mod (a,n) {
+                //     return a - Math.floor(a/n) * n;
+                // }
                 return diff;
             }
 
