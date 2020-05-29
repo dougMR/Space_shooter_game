@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <title>SpaceShooter</title>
@@ -8,15 +9,9 @@
   src="http://code.jquery.com/jquery-3.3.1.min.js"
   integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
   crossorigin="anonymous"></script> -->
-    <script
-    src="js/colorUtilities.js"
-    ></script>
-    <script
-    src="js/TweenLite.min.js"
-    ></script>
-    <script
-    src="js/stackBlur.js"
-    ></script>
+    <script src="js/colorUtilities.js"></script>
+    <script src="js/TweenLite.min.js"></script>
+    <script src="js/stackBlur.js"></script>
     <style>
         body {
             background-color: #111;
@@ -24,13 +19,16 @@
             margin: 0;
             padding-left: 10px;
         }
-        #myCanvas, #backCanvas {
+
+        #myCanvas,
+        #backCanvas {
             position: absolute;
             top: 0;
             left: 0;
             border: 1px solid grey;
             box-sizing: border-box;
         }
+
         #score {
             color: white;
             font-size: 2rem;
@@ -41,7 +39,9 @@
             top: 1rem;
             text-align: right;
         }
-        #fps, #player-shield-strength {
+
+        #fps,
+        #player-shield-strength {
             font-size: 1rem;
             font-family: sans-serif;
             color: #005500;
@@ -50,22 +50,24 @@
             left: 0;
             text-align: right;
         }
+
         #player-shield-strength {
             position: static;
             text-align: left;
             color: green;
         }
+
         #message-field {
             position: absolute;
             visibility: hidden;
-            
+
             text-align: center;
             color: #CCC;
             text-shadow: -0.05em 0 0 black, 0.05em 0 0 black, 0 -0.05em 0 black, 0 0.05em 0 black;
             /* width: 100vw; */
-            top:45%;
+            top: 45%;
             transform: translate(-50%, -50%);
-            left:50%;
+            left: 50%;
             font-size: 4vw;
             font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
             font-weight: bold;
@@ -75,6 +77,7 @@
         }
     </style>
 </head>
+
 <body>
     <p style="color: #CCCC88; font-family:'Courier New', Courier, monospace;">
         TURN: <- -> arrows, THRUST: up arrow, FIRE: spacebar
@@ -91,9 +94,9 @@
 
 
     <script>
-        var AsteroidsNameSpace = (function(){            
-            
-            let Game = (function(){
+        var AsteroidsNameSpace = (function () {
+
+            let Game = (function () {
                 // "Singleton" of sorts?
                 // Turning into a Catch-all
                 const Game = {};
@@ -102,15 +105,15 @@
                 let _fpsArray = [];
                 let _fpsTimer = 0;
                 let _lastTick = performance.now(); // (new Date).getTime();
-                let _timeStep = 1000/_fps; // target length of a frame
+                let _timeStep = 1000 / _fps; // target length of a frame
                 let _pointField = document.getElementById("score");
                 let _backgroundOn = 2;
                 Game.messageField = document.getElementById("message-field");
-                Game.firstPrizeDone = 
-                Game.firstBlackHoleDone = 
-                Game.firstShieldCollected =
-                Game.firstDoubleShotCollected = 
-                Game.firstWingmanCollected = false;
+                Game.firstPrizeDone =
+                    Game.firstBlackHoleDone =
+                    Game.firstShieldCollected =
+                    Game.firstDoubleShotCollected =
+                    Game.firstWingmanCollected = false;
                 // Game.timeStep = _timeStep;
                 Game.strokeColor = "#CCCCCC";
                 Game.fillColor = Game.strokeColor;
@@ -136,7 +139,7 @@
                 Game.msThisFrame = 0; // duration of current frame
                 Game.frameInterpolation = 1; // current frame's percent of _timeStep               
 
-                Game.run = function() {
+                Game.run = function () {
                     //
                     // Main Game Loop
                     //
@@ -149,40 +152,40 @@
                     // Display current FPS
                     // let fps = 1000 / Game.msThisFrame;
                     _fpsTimer += Game.msThisFrame;
-                    _fpsArray.push( Game.msThisFrame );
-                    if ( _fpsTimer >= 1000 ) {
+                    _fpsArray.push(Game.msThisFrame);
+                    if (_fpsTimer >= 1000) {
                         let total = _fpsArray.reduce((a, b) => a + b, 0);
                         let avg = total / _fpsArray.length;
                         avg = Math.round(avg);
-                        let fps = 1000/avg;
+                        let fps = 1000 / avg;
                         fps = Math.round(fps);
-                        let mspf = Math.round(1000/fps);
+                        let mspf = Math.round(1000 / fps);
                         document.getElementById('fps').innerHTML = (`fps: ${fps}<br>mspf: ${mspf}`); //_fpsArray.length: ${_fpsArray.length}<br>total: ${total}<br>avg: ${avg}<br>
                         _fpsArray.length = 0;
                         _fpsTimer = 0;
                     }
-                    
-                    // Check Collisions
-                    Game.checkCollisions( Game.shots, Game.opponents );
-                    let contractingBlackHoles = Game.blackHoles.filter((x)=>x.isContracting);
-                    Game.checkCollisions( contractingBlackHoles, Game.opponents );
-                    let shieldedOpponents = Game.opponents.filter((x)=>x.shield.on);
-                    Game.checkCollisions( shieldedOpponents, Game.opponents );
-                    Game.checkCollisions( Game.prizes, Game.opponents );
-                    Game.checkCollisions( Game.shots, Game.geese );
-                    Game.checkCollisions( Game.opponents, Game.geese );
-                    Game.checkCollisions( Game.prizes, Game.geese );
 
-                    if ( playerShip.alive ) {
+                    // Check Collisions
+                    Game.checkCollisions(Game.shots, Game.opponents);
+                    let contractingBlackHoles = Game.blackHoles.filter((x) => x.isContracting);
+                    Game.checkCollisions(contractingBlackHoles, Game.opponents);
+                    let shieldedOpponents = Game.opponents.filter((x) => x.shield.on);
+                    Game.checkCollisions(shieldedOpponents, Game.opponents);
+                    Game.checkCollisions(Game.prizes, Game.opponents);
+                    Game.checkCollisions(Game.shots, Game.geese);
+                    Game.checkCollisions(Game.opponents, Game.geese);
+                    Game.checkCollisions(Game.prizes, Game.geese);
+
+                    if (playerShip.alive) {
                         playerShip.move();
-                        if ( _backgroundOn === 2 ) Game.scrollBackground();
+                        if (_backgroundOn === 2) Game.scrollBackground();
                         Game.flyOpponents();
                         Game.flyGeese();
                         Game.keepInBounds(playerShip);
-                        Game.checkCollisions( Game.shots, [playerShip] );
-                        Game.checkCollisions( Game.prizes, [playerShip]);
-                        Game.checkCollisions( Game.opponents, [playerShip] );
-                        Game.checkCollisions( contractingBlackHoles, [playerShip] );
+                        Game.checkCollisions(Game.shots, [playerShip]);
+                        Game.checkCollisions(Game.prizes, [playerShip]);
+                        Game.checkCollisions(Game.opponents, [playerShip]);
+                        Game.checkCollisions(contractingBlackHoles, [playerShip]);
                         // Check Input
                         Game.checkKeys();
                     }
@@ -190,32 +193,32 @@
                     Game.applyBlackholeGravity();
 
                     // Move Everything
-                    Game.moveGamePieces( Game.shots );
-                    Game.moveGamePieces( Game.opponents );
-                    Game.moveGamePieces( Game.debris );
-                    Game.moveGamePieces( Game.blackHoles );
-                    Game.moveGamePieces( Game.prizes );
-                    Game.moveGamePieces( Game.geese );
+                    Game.moveGamePieces(Game.shots);
+                    Game.moveGamePieces(Game.opponents);
+                    Game.moveGamePieces(Game.debris);
+                    Game.moveGamePieces(Game.blackHoles);
+                    Game.moveGamePieces(Game.prizes);
+                    Game.moveGamePieces(Game.geese);
 
-                    
+
                     // Do the drawing
                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                    Game.drawGamePieces( Game.blackHoles );
-                    if ( playerShip.alive ) playerShip.draw();
-                    Game.drawGamePieces( Game.shots );
-                    Game.drawGamePieces( Game.opponents );
-                    Game.drawGamePieces( Game.geese );
-                    Game.drawGamePieces( Game.debris );
-                    Game.drawGamePieces( Game.prizes );
-                    Game.drawGamePieces( Game.graphics );
+                    Game.drawGamePieces(Game.blackHoles);
+                    if (playerShip.alive) playerShip.draw();
+                    Game.drawGamePieces(Game.shots);
+                    Game.drawGamePieces(Game.opponents);
+                    Game.drawGamePieces(Game.geese);
+                    Game.drawGamePieces(Game.debris);
+                    Game.drawGamePieces(Game.prizes);
+                    Game.drawGamePieces(Game.graphics);
 
                     // Handle spawning
-                    
+
                     // if ( Game.currentTime > Game.nextOpponentTime && Game.opponents.length < Game.maxOpponents && !Game.gameOver ) {
                     //     Game.spawnOpponent();
                     //     Game.nextOpponentTime = Game.currentTime + 10000;
                     // }
-                    if ( Game.currentTime > Game.nextPrizeTime && Game.prizes.length < Game.maxPrizes && !Game.gameOver ) {
+                    if (Game.currentTime > Game.nextPrizeTime && Game.prizes.length < Game.maxPrizes && !Game.gameOver) {
                         Game.spawnPrize();
                         Game.nextPrizeTime = Game.currentTime + 13000;
                     }
@@ -230,21 +233,21 @@
                     //         }, 2000 );
                     //     }
                     // }
-                    
+
 
                     // Handle level increases
                     let tempLevelUpTime = 60000;
-                    if ( Game.currentTime - Game.lastLevelIncreaseTime > tempLevelUpTime) {
+                    if (Game.currentTime - Game.lastLevelIncreaseTime > tempLevelUpTime) {
                         Game.increaseLevel();
                     }
-                    
-                    if ( !_paused ) {
-                        window.requestAnimationFrame( Game.run );
+
+                    if (!_paused) {
+                        window.requestAnimationFrame(Game.run);
                     }
                 }
 
-                Game.start = function(){
-                    console.log( "Game.start()" );
+                Game.start = function () {
+                    console.log("Game.start()");
                     _paused = false;
                     let pausedDuration = performance.now() - _lastTick; // (new Date).getTime() - _lastTick;
                     _lastTick += pausedDuration - _timeStep;
@@ -252,126 +255,126 @@
                     window.requestAnimationFrame(Game.run);
                     // _intervalId = setInterval(Game.run, _timeStep);
                 }
-                Game.stop = function() {
+                Game.stop = function () {
                     console.log("Game.stop()");
                     _paused = true;
                 }
-                Game.playSingleFrame = function(){
-                        Game.start();
-                        Game.stop();
-                        Game.run();
-                        // window.requestAnimationFrame(Game.run);
+                Game.playSingleFrame = function () {
+                    Game.start();
+                    Game.stop();
+                    Game.run();
+                    // window.requestAnimationFrame(Game.run);
                 }
-                Game.pause = function() {
+                Game.pause = function () {
                     // console.log("Game.pause()");
-                    if ( _paused ) {
+                    if (_paused) {
                         // Unpause 
                         Game.start();
-                    } else { 
+                    } else {
                         // Pause
                         Game.stop();
                     }
                 }
                 Game.respawnPlayer = function () {
                     // wait 1 sec
-                    _timeoutId = setTimeout( function() {
+                    _timeoutId = setTimeout(function () {
                         Game.spawnPlayer();
-                    }, 1000 );
+                    }, 1000);
                     Game.maxOpponents = 1;
                     Game.maxPrizes = 1;
                 }
                 Game.spawnPlayer = function () {
                     // select position
                     let margin = 50;
-                    let x = margin + Math.random() * ( canvas.width-2*margin );
-                    let y = margin + Math.random() * ( canvas.height-2*margin );
+                    let x = margin + Math.random() * (canvas.width - 2 * margin);
+                    let y = margin + Math.random() * (canvas.height - 2 * margin);
                     let duration = 1500;
-                    _timeoutId = setTimeout( function() {
+                    _timeoutId = setTimeout(function () {
                         // show Player at x/y
-                        playerShip.spawn(x,y);
-                    }, duration );
-                    Game.implode( x,y,duration, "#FFFFFF" );
+                        playerShip.spawn(x, y);
+                    }, duration);
+                    Game.implode(x, y, duration, "#FFFFFF");
                 }
-                Game.keepInBounds = function( element ) {
-                    if ( element.x > canvas.width ) {
+                Game.keepInBounds = function (element) {
+                    if (element.x > canvas.width) {
                         element.x -= canvas.width;
-                    } else if ( element.x < 0 ) {
+                    } else if (element.x < 0) {
                         element.x += canvas.width;
                     }
-                    if ( element.y > canvas.height ) {
+                    if (element.y > canvas.height) {
                         element.y -= canvas.height;
-                    } else if ( element.y < 0 ) {
+                    } else if (element.y < 0) {
                         element.y += canvas.height;
-                    }   
-                }
-                Game.moveGamePieces = function ( ar ) {
-                    for ( let item of ar ) {
-                        item.move();
-                        Game.keepInBounds( item );
                     }
                 }
-                Game.drawGamePieces = function ( ar ) {
-                    for ( let item of ar ) {
+                Game.moveGamePieces = function (ar) {
+                    for (let item of ar) {
+                        item.move();
+                        Game.keepInBounds(item);
+                    }
+                }
+                Game.drawGamePieces = function (ar) {
+                    for (let item of ar) {
                         item.draw();
                     }
                 }
                 Game.flyOpponents = function () {
-                    for ( let opponent of Game.opponents ) {
-                        let radToPlayer = radianFromTo( opponent, playerShip );
+                    for (let opponent of Game.opponents) {
+                        let radToPlayer = radianFromTo(opponent, playerShip);
                         // Get angle diff: opponent-to-player angle vs opponent's facing
-                        let deg = degDiff( radToDeg( radToPlayer ), opponent.rotation );
-                        if ( Math.abs(deg) < 90 ) {
+                        let deg = degDiff(radToDeg(radToPlayer), opponent.rotation);
+                        if (Math.abs(deg) < 90) {
                             opponent.thrust();
-                            if ( Math.abs(deg) < 5 ) {
+                            if (Math.abs(deg) < 5) {
                                 opponent.shoot();
                             }
                         }
-                        if ( deg > 0 ) {
+                        if (deg > 0) {
                             opponent.turnRight(2);
-                        } else if ( deg < 0 ) {
+                        } else if (deg < 0) {
                             opponent.turnLeft(2);
                         }
                     }
                 }
                 Game.flyGeese = function () {
-                    for ( let goose of Game.geese ) {
+                    for (let goose of Game.geese) {
                         goose.fly();
                     }
                 }
 
                 Game.increaseLevel = function () {
-                    Game.maxOpponents ++;
-                    Game.maxPrizes ++;
+                    Game.maxOpponents++;
+                    Game.maxPrizes++;
                     Game.lastLevelIncreaseTime = Game.currentTime;
                 }
-                Game.spawnOpponent = function() {
+                Game.spawnOpponent = function () {
                     let duration = 1000;
                     let margin = 50;
-                    let x = margin + (canvas.width-2*margin) * Math.random();
-                    let y = margin + (canvas.height-2*margin) * Math.random();
-                    _timeoutId = setTimeout( function() {
-                        let opponentShip = new Ship(20,30,x,y,0);
+                    let x = margin + (canvas.width - 2 * margin) * Math.random();
+                    let y = margin + (canvas.height - 2 * margin) * Math.random();
+                    _timeoutId = setTimeout(function () {
+                        let opponentShip = new Ship(20, 30, x, y, 0);
                         opponentShip.strokeColor = Game.opponentColor;
                         opponentShip.fillColor = "transparent";
                         opponentShip.shieldsOn = false;
                         opponentShip.mass = 0.8;
                         opponentShip.myArray = Game.opponents;
-                    }, duration );
-                    Game.implode( x,y,duration, Game.opponentColor );
+                    }, duration);
+                    Game.implode(x, y, duration, Game.opponentColor);
                 }
-                Game.spawnPrize = function() {
+                Game.spawnPrize = function () {
                     let margin = 50;
-                    let x = margin + (canvas.width-2*margin) * Math.random();
-                    let y = margin + (canvas.height-2*margin) * Math.random();
+                    let x = margin + (canvas.width - 2 * margin) * Math.random();
+                    let y = margin + (canvas.height - 2 * margin) * Math.random();
                     let prizes = ["shield", "doubleShot", "wingMan"]
-                    let type = prizes[ Math.floor( Math.random() * prizes.length ) ];
-                    let testPrize = new Prize( x, y, type );
+                    let type = prizes[Math.floor(Math.random() * prizes.length)];
+                    let testPrize = new Prize(x, y, type);
                     testPrize.myArray = Game.prizes;
-                    if ( !Game.firstPrizeDone ) {
-                        setTimeout( function() {
-                            Game.announce( `Fly into power-ups!`);
+                    if (!Game.firstPrizeDone) {
+                        setTimeout(function () {
+                            Game.announce(`Fly into power-ups!`);
                             Game.firstPrizeDone = true;
-                        }, 2000 );
+                        }, 2000);
                     }
                 }
                 /*
@@ -387,60 +390,60 @@
                     
                 }
                 */
-                
-                Game.checkCollisions = function ( groupA, groupB ) {
+
+                Game.checkCollisions = function (groupA, groupB) {
                     let collided = false;
-                    for ( let A of groupA ) {
-                        for ( let B of groupB ) {
-                            if ( A != B ) {
+                    for (let A of groupA) {
+                        for (let B of groupB) {
+                            if (A != B) {
                                 // in case element belongs to two groups (like opponent and shielded opponent)
-                                let hitTime = Game.checkCollision ( A, B );
-                                if ( hitTime >=0 && hitTime <= 1 ) {
+                                let hitTime = Game.checkCollision(A, B);
+                                if (hitTime >= 0 && hitTime <= 1) {
                                     // hitTime is getting passed on to handleCollision function a lot
-                                    Game.handleCollision( A, B, hitTime );
+                                    Game.handleCollision(A, B, hitTime);
                                     collided = true;
                                     break;
                                 }
                             }
-                            if ( collided ) break;
+                            if (collided) break;
                         }
-                        if ( collided ) break;
+                        if (collided) break;
                     }
                 }
-                
-                Game.checkCollision = function ( A, B ) {
+
+                Game.checkCollision = function (A, B) {
                     // Does center of A move through circle of B this frame? 
-                    let hitTime = circleSweepTest( A, B );
+                    let hitTime = circleSweepTest(A, B);
                     // let hit = hitTime <= 1 && hitTime >= 0;
                     return hitTime;
                 }
-                Game.handleCollision = function ( A, B, hitTime ) {
+                Game.handleCollision = function (A, B, hitTime) {
                     // hitTime is # between 0 and 1 - at what percent of this frame move do they collide
 
-                    let testDamage = 1;                    
+                    let testDamage = 1;
 
-                    if ( A instanceof Prize || B instanceof Prize ) {
+                    if (A instanceof Prize || B instanceof Prize) {
                         console.log("prize collided");
                         let prize = A instanceof Prize ? A : B;
                         let collector = A === prize ? B : A;
-                        prize.collect ( collector );
+                        prize.collect(collector);
                     } else {
                         let Abounce = !!A.shieldsOn;
                         let Bbounce = !!B.shieldsOn;
-                        if ( Abounce || Bbounce ) { 
-                            Game.bounce ( A, B, hitTime );
+                        if (Abounce || Bbounce) {
+                            Game.bounce(A, B, hitTime);
                         }
-                        A.takeDamage( testDamage );
-                        B.takeDamage( testDamage );
+                        A.takeDamage(testDamage);
+                        B.takeDamage(testDamage);
                     }
-                    
-                    if ( A == playerShip || B == playerShip ) {
+
+                    if (A == playerShip || B == playerShip) {
                         // display player's shield strength
                         let shieldSpan = document.getElementById('player-shield-strength');
                         let shieldText = playerShip.shieldsOn ? `SHIELD STRENGTH: ${playerShip.shield.hp}` : ``;
                         shieldSpan.innerText = shieldText;
                     }
-                    
+
                     // 
                     /*
                     if ( !Abounce ) {
@@ -459,23 +462,23 @@
                     }
                     */
                 }
-                Game.bounce = function ( A, B, hitTime ) {
+                Game.bounce = function (A, B, hitTime) {
                     // Move to touching
-                    A.x += A.xspeed*hitTime * Game.frameInterpolation;
-                    A.y += A.yspeed*hitTime * Game.frameInterpolation; 
-                    B.x += B.xspeed*hitTime * Game.frameInterpolation;
-                    B.y += B.yspeed*hitTime * Game.frameInterpolation;
+                    A.x += A.xspeed * hitTime * Game.frameInterpolation;
+                    A.y += A.yspeed * hitTime * Game.frameInterpolation;
+                    B.x += B.xspeed * hitTime * Game.frameInterpolation;
+                    B.y += B.yspeed * hitTime * Game.frameInterpolation;
 
                     // Transfer momentum, move after touching
-                    var transferResults = transferMomentum( A, B );
-                    A.xspeed = ( transferResults.a.x ); 
-                    A.yspeed = ( transferResults.a.y ); 
-                    B.xspeed = ( transferResults.b.x ); 
-                    B.yspeed = ( transferResults.b.y ); 
-                    A.x += A.xspeed * (1-hitTime) * Game.frameInterpolation;
-                    A.y += A.yspeed * (1-hitTime) * Game.frameInterpolation;
-                    B.x += B.xspeed * (1-hitTime) * Game.frameInterpolation;
-                    B.y += B.yspeed * (1-hitTime) * Game.frameInterpolation;
+                    var transferResults = transferMomentum(A, B);
+                    A.xspeed = (transferResults.a.x);
+                    A.yspeed = (transferResults.a.y);
+                    B.xspeed = (transferResults.b.x);
+                    B.yspeed = (transferResults.b.y);
+                    A.x += A.xspeed * (1 - hitTime) * Game.frameInterpolation;
+                    A.y += A.yspeed * (1 - hitTime) * Game.frameInterpolation;
+                    B.x += B.xspeed * (1 - hitTime) * Game.frameInterpolation;
+                    B.y += B.yspeed * (1 - hitTime) * Game.frameInterpolation;
 
                     // Back up 1 frame distance
                     // Because movment happens after collision
@@ -485,21 +488,21 @@
                     B.x -= B.xspeed * Game.frameInterpolation;
                     B.y -= B.yspeed * Game.frameInterpolation;
                 }
-                Game.addPoints = function( value ) {
+                Game.addPoints = function (value) {
                     Game.score += value;
                     let scoreString = Game.score.toString().padStart(4, '0');
                     // Find "-", move it to first
-                    if ( scoreString.indexOf( "-" ) !== -1 ) {
+                    if (scoreString.indexOf("-") !== -1) {
                         // move it to front
-                        scoreString = scoreString.replace( "-", "" );
+                        scoreString = scoreString.replace("-", "");
                         scoreString = `-${scoreString}`;
                     }
                     _pointField.innerHTML = scoreString;
                 }
-                Game.explode = function(element) {
+                Game.explode = function (element) {
                     let startColor = element.explodeColors[0];
                     let endColor = element.explodeColors[1];
-                    let midColor = mixHexColors( startColor, endColor, 50);
+                    let midColor = mixHexColors(startColor, endColor, 50);
                     let x = element.x;
                     let y = element.y;
                     let mass = element.mass;
@@ -510,122 +513,122 @@
                     mass = mass === undefined ? 1 : mass;
                     // console.log("explode, mass: "+mass);
                     let debrisNum = 10 + Math.round(50 * mass);
-                    for ( let i = 0; i < debrisNum; i++ ) {
+                    for (let i = 0; i < debrisNum; i++) {
                         let maxSpeed = 3 + 9 * mass;
-                        let speed = 0.5+Math.random()*(maxSpeed-0.5);
+                        let speed = 0.5 + Math.random() * (maxSpeed - 0.5);
                         let rad = degToRad(Math.random() * 360);
-                        let xspeed = Math.cos(rad) * speed + elemXspeed*0.5;
-                        let yspeed = Math.sin(rad) * speed + elemYspeed*0.5;
-                        let diameter = 7 - (speed/maxSpeed) * 5;
-                        let lifespan = 1000 + 500*(speed/maxSpeed);
+                        let xspeed = Math.cos(rad) * speed + elemXspeed * 0.5;
+                        let yspeed = Math.sin(rad) * speed + elemYspeed * 0.5;
+                        let diameter = 7 - (speed / maxSpeed) * 5;
+                        let lifespan = 1000 + 500 * (speed / maxSpeed);
                         let color = endColor;
-                        if ( speed < maxSpeed * 0.1 ) {
+                        if (speed < maxSpeed * 0.1) {
                             color = startColor;
-                        } else if ( speed < maxSpeed * 0.35 ) {
+                        } else if (speed < maxSpeed * 0.35) {
                             color = midColor;
                         }
-                        let debris = new Debris(x,y,xspeed,yspeed,diameter,lifespan, color);
+                        let debris = new Debris(x, y, xspeed, yspeed, diameter, lifespan, color);
                         debris.decelerate = true;
                         debris.myArray = Game.debris;
                     }
                 }
-                Game.implode = function(endx,endy,dur,color) {
+                Game.implode = function (endx, endy, dur, color) {
                     let maxDist = 1000;
                     let minDist = 100;
                     let maxSpeed = maxDist / _timeStep;
                     let numSteps = dur / _timeStep;
-                    for ( let i = 0; i < 40; i++ ) {
-                        let dist = minDist + Math.random() * (maxDist-minDist);
+                    for (let i = 0; i < 40; i++) {
+                        let dist = minDist + Math.random() * (maxDist - minDist);
                         let speed = dist / numSteps;
                         let rad = degToRad(Math.random() * 360);
                         let xspeed = Math.cos(rad) * speed;
                         let yspeed = Math.sin(rad) * speed;
                         let x = endx - xspeed * numSteps;
                         let y = endy - yspeed * numSteps;
-                        let diameter = Math.random()*12*0.5;
-                        let particle = new Debris(x,y,xspeed,yspeed,diameter,dur, color);
+                        let diameter = Math.random() * 12 * 0.5;
+                        let particle = new Debris(x, y, xspeed, yspeed, diameter, dur, color);
                         particle.myArray = Game.debris;
                     }
                 }
                 Game.applyBlackholeGravity = function () {
-                    function pullElement( el, BH ) {
+                    function pullElement(el, BH) {
                         let eventHorizonRadius = BH.width * 3; // 6x radius
-                        let dist = distance ( el, BH );
-                        if ( dist < eventHorizonRadius ) {
-                            let radian = radianFromTo (el,BH);
-                            let pull = 1 - (dist/eventHorizonRadius);
+                        let dist = distance(el, BH);
+                        if (dist < eventHorizonRadius) {
+                            let radian = radianFromTo(el, BH);
+                            let pull = 1 - (dist / eventHorizonRadius);
                             pull *= 0.5;
                             el.xspeed += Math.cos(radian) * pull;
                             el.yspeed += Math.sin(radian) * pull;
                             // if cross center, destroy?
                         }
                     }
-                    for ( let BH of Game.blackHoles ) {
-                        
+                    for (let BH of Game.blackHoles) {
+
                         // Player Ship
-                        if ( playerShip.alive ) pullElement( playerShip, BH );
+                        if (playerShip.alive) pullElement(playerShip, BH);
                         // Geese
-                        for ( let g of Game.geese ) {
-                            pullElement( g, BH );
+                        for (let g of Game.geese) {
+                            pullElement(g, BH);
                         }
                         // Opponent Ships
-                        for ( let o of Game.opponents ) {
-                            pullElement( o, BH );
+                        for (let o of Game.opponents) {
+                            pullElement(o, BH);
                         }
                         // Debris
-                        for ( let d of Game.debris ) {
-                            pullElement( d, BH );
+                        for (let d of Game.debris) {
+                            pullElement(d, BH);
                         }
                         // Shots
-                        for ( let s of Game.shots ) {
-                            pullElement( s, BH );
+                        for (let s of Game.shots) {
+                            pullElement(s, BH);
                         }
                         // Prizes?
                     }
                 }
 
-                Game.scrollBackground = function ( ) {
+                Game.scrollBackground = function () {
                     // bg tile is 720x720
                     // offset bg tile based on playerShip position
                     const tileSize = 720;
                     const centerX = canvas.width * 0.5;
                     const centerY = canvas.height * 0.5;
-                    const playerOffsetX = ( playerShip.x - centerX ) / centerX; // -1 to 1
-                    const playerOffsetY = ( playerShip.y - centerY ) / centerY; // -1 to 1
+                    const playerOffsetX = (playerShip.x - centerX) / centerX; // -1 to 1
+                    const playerOffsetY = (playerShip.y - centerY) / centerY; // -1 to 1
                     const bgX = -(tileSize * playerOffsetX);
                     const bgY = -(tileSize * playerOffsetY);
-                    document.body.style.backgroundPosition = bgX+"px "+bgY+"px";
+                    document.body.style.backgroundPosition = bgX + "px " + bgY + "px";
                 }
                 Game.toggleBackground = function () {
-                    _backgroundOn = ( _backgroundOn + 1 ) % 3;
-                    document.body.style.backgroundImage = 
-                        _backgroundOn !=0 ? "url('images/space_tile_720.jpg')"
-                        : "none";
+                    _backgroundOn = (_backgroundOn + 1) % 3;
+                    document.body.style.backgroundImage =
+                        _backgroundOn != 0 ? "url('images/space_tile_720.jpg')"
+                            : "none";
                 }
 
-                Game.announce = function ( text ) {
+                Game.announce = function (text) {
                     let duration = 2000;
-                    if ( Game.messageField.style.visibility === "visible" ){
+                    if (Game.messageField.style.visibility === "visible") {
                         // queue next announcement
                         let innerText = text;
-                        setTimeout( function() {
-                            Game.announce( text );
-                        }, duration + 50 );
+                        setTimeout(function () {
+                            Game.announce(text);
+                        }, duration + 50);
                         return;
                     }
-                        if ( !_paused ) {
+                    if (!_paused) {
+                        Game.pause();
+                        setTimeout(function () {
                             Game.pause();
-                            setTimeout( function(){
-                                Game.pause();
-                            }, duration );
-                        }
-                        Game.showMessage( text );
-                        setTimeout( function() {
-                            Game.hideMessage();
-                        }, duration );
-                    
+                        }, duration);
+                    }
+                    Game.showMessage(text);
+                    setTimeout(function () {
+                        Game.hideMessage();
+                    }, duration);
+
                 }
-                Game.showMessage = function ( text ) {
+                Game.showMessage = function (text) {
                     Game.messageField.innerHTML = text;
                     Game.messageField.style.visibility = "visible";
                 }
@@ -636,42 +639,42 @@
                 // Key Handling v
 
                 Game.checkKeys = function () {
-                    for ( let key of Game.keys ) {
-                        if ( key && key.isDown && key.downFunc ) {
+                    for (let key of Game.keys) {
+                        if (key && key.isDown && key.downFunc) {
                             key.downFunc();
                         }
                     }
                 }
 
                 Game.keys = new Array();
-                Game.setKey = function(name,keyCode,downFunc,upFunc){
-                    Game.keys[keyCode] = { name : name, isDown : false, downFunc : downFunc, upFunc : upFunc == undefined ? null : upFunc };
+                Game.setKey = function (name, keyCode, downFunc, upFunc) {
+                    Game.keys[keyCode] = { name: name, isDown: false, downFunc: downFunc, upFunc: upFunc == undefined ? null : upFunc };
                 }
-                Game.keyDown = function ( keycode ) {
+                Game.keyDown = function (keycode) {
                     // These keys are checked even when game is paused
-                    if ( keycode === 80 ) {
+                    if (keycode === 80) {
                         // 'p' toggle pause
                         Game.pause();
 
                         // If Announcement is on, how does that affect manual pauses? 
 
-                    } else if ( keycode === 83 ) {
+                    } else if (keycode === 83) {
                         // 's' play single frame (step)
                         Game.playSingleFrame();
-                    } else if ( keycode === 66 ) {
+                    } else if (keycode === 66) {
                         // 'b' toggle background
                         Game.toggleBackground();
                     }
-                    if ( Game.keys[keycode] ) {
+                    if (Game.keys[keycode]) {
                         // These only happen when Game.run() loop is running 
                         // and Game.checkKeys() gets executed
                         Game.keys[keycode].isDown = true;
                     }
                 }
-                Game.keyUp = function ( keycode ) {
-                    if ( Game.keys[keycode] ) {
+                Game.keyUp = function (keycode) {
+                    if (Game.keys[keycode]) {
                         let key = Game.keys[keycode];
-                        if ( key.upFunc != undefined ) {
+                        if (key.upFunc != undefined) {
                             key.upFunc();
                         }
                         key.isDown = false;
@@ -680,7 +683,6 @@
                 return Game;
             })();
 
-            
 
 
 
@@ -689,9 +691,20 @@
 
 
 
+            /*
 
 
+            .d8888b.  888                                              
+            d88P  Y88b 888                                              
+            888    888 888                                              
+            888        888  8888b.  .d8888b  .d8888b   .d88b.  .d8888b  
+            888        888     "88b 88K      88K      d8P  Y8b 88K      
+            888    888 888 .d888888 "Y8888b. "Y8888b. 88888888 "Y8888b. 
+            Y88b  d88P 888 888  888      X88      X88 Y8b.          X88 
+            "Y8888P"  888 "Y888888  88888P'  88888P'  "Y8888   88888P' 
 
+
+            */
 
 
 
@@ -707,9 +720,9 @@
             ============================================
             */
             class GameElement {
-                constructor ( w, h, x, y, rot ) {
+                constructor(w, h, x, y, rot) {
                     // console.log("GameElement.constructor()")
-                    
+
                     // init
                     this._strokeColor = Game.strokeColor;
                     this._fillColor = Game.fillColor;
@@ -727,47 +740,47 @@
                     this._explosive = true;
                     this._mass = 1;
                     this._startTime = Game.currentTime;
-                    this._explodeColors = ["#FF0000","#FFFF00"];
+                    this._explodeColors = ["#FF0000", "#FFFF00"];
                 }
-                predraw () {
+                predraw() {
                     // rotate and translate
-                    ctx.translate( this.x, this.y );
-                    const radian = degToRad( this._rot );
-                    ctx.rotate( radian );
+                    ctx.translate(this.x, this.y);
+                    const radian = degToRad(this._rot);
+                    ctx.rotate(radian);
                 }
-                draw () {
-                    
+                draw() {
+
                     // Draw my shape
-                   
+
                 }
-                postdraw () {
-                    ctx.rotate( -degToRad( this._rot ) );
-                    ctx.translate( -this.x, -this.y );
+                postdraw() {
+                    ctx.rotate(-degToRad(this._rot));
+                    ctx.translate(-this.x, -this.y);
                 }
-                move () {
+                move() {
                     // un-rotate and un-translate
                     this.x += this.xspeed * Game.frameInterpolation;
                     this.y += this.yspeed * Game.frameInterpolation;
                 }
-                kill () {
+                kill() {
                     // console.log("GameElement.kill()");
                     // remove me from myArray
-                    if ( this.myArray ) {
-                        let i = this.myArray.indexOf( this );
-                        this.myArray.splice( i, 1 );
+                    if (this.myArray) {
+                        let i = this.myArray.indexOf(this);
+                        this.myArray.splice(i, 1);
                     }
                     // Kill me
                     delete this;
                 }
-                takeDamage (amount) {
+                takeDamage(amount) {
                     // console.log("GameElement.takeDamage()");
-                    if ( typeof amount === "number" ) {
+                    if (typeof amount === "number") {
                         this.hp -= amount;
                         // console.log(`this.hp: ${this.hp}`);
-                        if ( this.hp <= 0 ) {
-                            if ( this.value != 0 ) {
+                        if (this.hp <= 0) {
+                            if (this.value != 0) {
                                 Game.addPoints(this.value);
-                                let pointsDisplay = new PointsDisplay( this.x, this.y, this.value );
+                                let pointsDisplay = new PointsDisplay(this.x, this.y, this.value);
                                 pointsDisplay.myArray = Game.graphics;
                             }
                             if (this._explosive) Game.explode(this);
@@ -776,120 +789,120 @@
                     }
                 }
 
-                get explodeColors () {
+                get explodeColors() {
                     return this._explodeColors;
                 }
-                set explodeColors (ar) {
-                    if ( Array.isArray( ar ) ) {
+                set explodeColors(ar) {
+                    if (Array.isArray(ar)) {
                         this._explodeColors = ar;
                     }
                 }
 
-                set strokeColor (value) {
+                set strokeColor(value) {
                     this._strokeColor = value;
                 }
 
-                set fillColor (value) {
+                set fillColor(value) {
                     this._fillColor = value;
                 }
 
-                get x () {
+                get x() {
                     return this._x;
                 }
-                set x ( value ) {
+                set x(value) {
                     this._x = value;
                 }
 
-                get y () {
+                get y() {
                     return this._y;
                 }
-                set y ( value ) {
+                set y(value) {
                     this._y = value;
                 }
 
-                get rotation () {
-                    return constrainDegree ( this._rot );
+                get rotation() {
+                    return constrainDegree(this._rot);
                 }
-                set rotation ( value ) {
-                    value = constrainDegree( value );
+                set rotation(value) {
+                    value = constrainDegree(value);
                     this._rot = value;
                 }
-                get radian () {
+                get radian() {
                     return degToRad(this._rot);
                 }
 
-                get width () {
+                get width() {
                     return this._width || this._diameter;
                 }
-                set width ( value ) {
-                    if ( typeof value == 'number' ) {
+                set width(value) {
+                    if (typeof value == 'number') {
                         this._width = value;
                     }
                 }
 
-                get height () {
+                get height() {
                     return this._height;
                 }
-                set height ( value ) {
-                    if ( typeof value == 'number' ) {
+                set height(value) {
+                    if (typeof value == 'number') {
                         this._height = value;
                     }
                 }
 
-                set xspeed ( value ) {
-                    if ( typeof value == 'number' ) {
+                set xspeed(value) {
+                    if (typeof value == 'number') {
                         this._xspeed = value;
                     }
                 }
-                get xspeed () {
+                get xspeed() {
                     return this._xspeed;
                 }
 
-                set yspeed ( value ) {
-                    if ( typeof value == 'number' ) {
+                set yspeed(value) {
+                    if (typeof value == 'number') {
                         this._yspeed = value;
                     }
                 }
-                get yspeed () {
+                get yspeed() {
                     return this._yspeed;
                 }
 
-                get vector () {
-                    let movementAngle = Math.atan2( this.yspeed, this.xspeed );
+                get vector() {
+                    let movementAngle = Math.atan2(this.yspeed, this.xspeed);
                     // if ( movementAngle === undefined ) movementAngle = 0;
-                    return { angle: movementAngle, magnitude: hypotenuse ( this.xspeed, this.yspeed ) };
+                    return { angle: movementAngle, magnitude: hypotenuse(this.xspeed, this.yspeed) };
                 }
 
-                get mass () {
+                get mass() {
                     return this._mass;
                 }
-                set mass ( value ) {
+                set mass(value) {
                     this._mass = value;
                 }
 
-                set myArray ( value ) {
-                    if ( Array.isArray( value) ) {
+                set myArray(value) {
+                    if (Array.isArray(value)) {
                         this._myArray = value;
-                        this._myArray.push( this );
+                        this._myArray.push(this);
                     }
                 }
-                get myArray () {
+                get myArray() {
                     return this._myArray;
                 }
 
-                get value () {
+                get value() {
                     return this._value;
                 }
 
-                get hp () {
+                get hp() {
                     return this._hp;
                 }
-                set hp ( value ) {
-                    if ( typeof value === 'number' ) {
+                set hp(value) {
+                    if (typeof value === 'number') {
                         this._hp = value;
                     }
                 }
-                get age () {
+                get age() {
                     return Game.currentTime - this._startTime;
                 }
             }
@@ -903,9 +916,9 @@
             ============================================
             */
             class Ship extends GameElement {
-                constructor( w, h, x, y, rot ) {
+                constructor(w, h, x, y, rot) {
                     // console.log("Ship.constructor()")
-                    super ( w,h,x,y,rot );
+                    super(w, h, x, y, rot);
                     // init
                     this._value = 2;
                     this._lastShotTime = 0;
@@ -917,48 +930,50 @@
                     this._yspeed = 0;
                     this._maxthrust = 10;
                     this._thrust = 0;
-                    
+
                     this._shipWidth = w;
-                    this._shield = new Shield( this._width );
+                    this._shield = new Shield((this._width + this._height) / 3);
                     this._shield.on = false;
                     this._doubleShots = 0;
                 }
-                draw () {
+                draw() {
                     this.predraw();
                     // Draw Triangle
                     ctx.strokeStyle = this._strokeColor;
                     // ctx.lineWidth = 2;
                     ctx.beginPath();
 
-                    ctx.moveTo( this.height*0.5, 0 );
-                    ctx.lineTo( -this.height*0.5, -this._shipWidth * 0.5 );
-                    ctx.lineTo( -this.height *0.5, this._shipWidth*0.5 );
-                    ctx.lineTo( this.height*0.5, 0 );
+                    ctx.moveTo(this.height * 0.5, 0);
+                    ctx.lineTo(-this.height * 0.4, -this._shipWidth * 0.5);
+                    ctx.lineTo(-this.height * 0.5, -this._shipWidth * 0.2);
+                    ctx.lineTo(-this.height * 0.5, this._shipWidth * 0.2);
+                    ctx.lineTo(-this.height * 0.4, this._shipWidth * 0.5);
+                    ctx.lineTo(this.height * 0.5, 0);
 
                     ctx.stroke();
 
-                    if ( this._fillColor ) {
+                    if (this._fillColor) {
                         ctx.fillStyle = this._fillColor;
                         ctx.fill();
                     }
 
-                    if ( this._thrust > 0 ) {
+                    if (this._thrust > 0) {
                         // Draw thrust
                         ctx.beginPath();
-                        ctx.moveTo( -this.height*0.5, -this._shipWidth*0.2 );
-                        ctx.lineTo( -this.height*0.5, this._shipWidth * 0.2 );
-                        ctx.lineTo( -this.height * 0.75, 0 );
-                        ctx.lineTo( -this.height*0.5, -this._shipWidth*0.2 );
+                        ctx.moveTo(-this.height * 0.5, -this._shipWidth * 0.2);
+                        ctx.lineTo(-this.height * 0.5, this._shipWidth * 0.2);
+                        ctx.lineTo(-this.height * 0.75, 0);
+                        ctx.lineTo(-this.height * 0.5, -this._shipWidth * 0.2);
                         ctx.strokeStyle = "#FFCC00";
                         ctx.stroke();
                     }
 
-                    if ( this._shield.on ) {
+                    if (this._shield.on) {
                         this._shield.draw();
                     }
                     this.postdraw();
 
-                    
+
 
                     // // Show speed vector, for testing
                     // // Show vector text data
@@ -981,25 +996,25 @@
                     // ctx.font = '16px sans-serif';
                     // let hp = this.shield.on ? this.shield.hp : this.hp;
                     // ctx.fillText(hp, this.x + 10, this.y - 10 );
-                    
-                   
+
+
                 }
-                turnRight ( value ) {
+                turnRight(value) {
                     let rot = value ? value : 4;
                     this.rotation += rot * Game.frameInterpolation;
                 }
-                turnLeft ( value ) {
+                turnLeft(value) {
                     let rot = value ? value : 4;
                     this.rotation -= rot * Game.frameInterpolation;
                 }
-                shoot () {
+                shoot() {
                     /* console.log(`liveshots|maxshots: ${this.liveShots}|${this._maxShots}`); */
                     let doubleShot = this.doubleShots > 0;
                     let max = doubleShot ? this._maxShots * 2 : this._maxShots;
-                    if ( this.liveShots < max && Game.currentTime > this._lastShotTime + this._shotFrequency ) {
+                    if (this.liveShots < max && Game.currentTime > this._lastShotTime + this._shotFrequency) {
                         let cos = Math.cos(this.radian);
                         let sin = Math.sin(this.radian);
-                        let nosex = this.shieldsOn 
+                        let nosex = this.shieldsOn
                             ? this.x + cos * this.width * 0.75
                             : this.x + cos * this.height * 0.75;
                         let nosey = this.shieldsOn
@@ -1007,61 +1022,61 @@
                             : this.y + sin * this.height * 0.75;
                         let xspeed = this.xspeed + cos * this._shotPower;
                         let yspeed = this.yspeed + sin * this._shotPower;
-                        if ( doubleShot ) {
-                            degToRad( this._rot );
-                            radToDeg( this.radian );
+                        if (doubleShot) {
+                            degToRad(this._rot);
+                            radToDeg(this.radian);
                             let perpendicularAngle = this._rot - 90;
-                            let perpendicularCos = Math.cos( degToRad( perpendicularAngle ));
-                            let perpendicularSin = Math.sin( degToRad( perpendicularAngle ));
+                            let perpendicularCos = Math.cos(degToRad(perpendicularAngle));
+                            let perpendicularSin = Math.sin(degToRad(perpendicularAngle));
                             let shot1x = nosex + perpendicularCos * 10;
                             let shot1y = nosey + perpendicularSin * 10;
                             let shot2x = nosex - perpendicularCos * 10;
                             let shot2y = nosey - perpendicularSin * 10;
-                            let shot1 = new Shot( shot1x, shot1y, xspeed, yspeed, this );
-                            let shot2 = new Shot( shot2x, shot2y, xspeed, yspeed, this );
+                            let shot1 = new Shot(shot1x, shot1y, xspeed, yspeed, this);
+                            let shot2 = new Shot(shot2x, shot2y, xspeed, yspeed, this);
                             shot1.myArray = shot2.myArray = Game.shots;
                             this.liveShots += 2;
                             this.doubleShots -= 1;
                         } else {
-                            let shot = new Shot( nosex, nosey, xspeed, yspeed, this );
+                            let shot = new Shot(nosex, nosey, xspeed, yspeed, this);
                             shot.myArray = Game.shots;
                             this.liveShots++;
                         }
                         this._lastShotTime = Game.currentTime;
                     }
                 }
-                thrust ( value ) {
+                thrust(value) {
                     value = value != undefined ? value : 2;
                     this._thrust += value;
-                    if ( this._thrust < 0 ) this._thrust = 0;                    
-                    this._thrust = Math.min ( this._thrust, this._maxthrust );
+                    if (this._thrust < 0) this._thrust = 0;
+                    this._thrust = Math.min(this._thrust, this._maxthrust);
 
-                    let radian = degToRad( this.rotation );
-                    let xthrust = Math.cos(radian)*this._thrust;
-                    let ythrust = Math.sin(radian)*this._thrust;
+                    let radian = degToRad(this.rotation);
+                    let xthrust = Math.cos(radian) * this._thrust;
+                    let ythrust = Math.sin(radian) * this._thrust;
                     let inertia = 16;
-                    this.xspeed = (this.xspeed * inertia + xthrust) / (inertia+1);
-                    this.yspeed = (this.yspeed * inertia + ythrust) / (inertia+1);
+                    this.xspeed = (this.xspeed * inertia + xthrust) / (inertia + 1);
+                    this.yspeed = (this.yspeed * inertia + ythrust) / (inertia + 1);
                 }
-                move () {
+                move() {
                     super.move();
                     // Deceleration
-                    if ( this._thrust > 0 ) {
+                    if (this._thrust > 0) {
                         this._thrust -= 1 * Game.frameInterpolation;
-                        if ( this._thrust < 0 ) this._thrust = 0;
+                        if (this._thrust < 0) this._thrust = 0;
                     }
                     // this.xspeed *= 0.99;
                     this.xspeed -= this.xspeed * 0.01 * Game.frameInterpolation;
                     // this.yspeed *= 0.99;
                     this.yspeed -= this.yspeed * 0.01 * Game.frameInterpolation;
-                    if ( Math.abs(this.xspeed) < 0.1 && Math.abs(this.yspeed) < 0.1 ) {
+                    if (Math.abs(this.xspeed) < 0.1 && Math.abs(this.yspeed) < 0.1) {
                         this.xspeed = this.yspeed = 0;
                     }
                 }
-                takeDamage (amount) {
+                takeDamage(amount) {
                     // console.log("Ship.takeDamage()");
-                    if ( typeof amount === "number" ) {
-                        if ( this.shield.on ) {
+                    if (typeof amount === "number") {
+                        if (this.shield.on) {
                             // console.log(`this.shield.on, send damage to this.shield`);
                             this.shield.takeDamage(amount);
                         } else {
@@ -1075,42 +1090,42 @@
                         }
                     }
                 }
-                
 
-                set liveShots ( value ) {
-                    if ( typeof value == 'number' ) {
+
+                set liveShots(value) {
+                    if (typeof value == 'number') {
                         this._liveShots = value;
                     }
                 }
-                get liveShots () {
+                get liveShots() {
                     return this._liveShots;
                 }
-                set shieldsOn ( value ) {
+                set shieldsOn(value) {
                     this.shield.on = !!value;
                 }
-                get shieldsOn () {
+                get shieldsOn() {
                     return this.shield.on;
                 }
-                get shield () {
+                get shield() {
                     return this._shield;
                 }
 
-                get doubleShots () {
+                get doubleShots() {
                     return this._doubleShots;
                 }
-                set doubleShots ( value ) {
-                    if ( typeof value == 'number' ) {
+                set doubleShots(value) {
+                    if (typeof value == 'number') {
                         this._doubleShots = value;
                     }
                 }
 
-                get shipWidth () {
+                get shipWidth() {
                     return this._width;
                 }
-                get width () {
+                get width() {
                     return this._shield.on ? this._shield.width : this._width;
                 }
-                get speed () {
+                get speed() {
                     return this._thrust;
                 }
             }
@@ -1123,26 +1138,26 @@
             ============================================
             */
             class PlayerShip extends Ship {
-                constructor (w,h,x,y,rot) {
-                    super (w,h,x,y,rot);
+                constructor(w, h, x, y, rot) {
+                    super(w, h, x, y, rot);
                     this._maxthrust = 12;
                     this._alive = true;
                     this._maxShots = 8;
                     // this._shotFrequency = 200;
                     this._shotPower = 12;
                     this._value = -1;
-                    this._strokeColor = "#FFFFFF";
-                    this._fillColor = Game.playerColor = "darkblue";
+                    this._strokeColor = "orange";
+                    this._fillColor = Game.playerColor = "gold";
                     this.hp = this._maxHP = 1;
                 }
-                draw () {
-                    if ( this._alive ) {
+                draw() {
+                    if (this._alive) {
                         super.draw();
                     }
                 }
-                kill () {
+                kill() {
                     console.log(`Playership.kill()`);
-                    if ( this._alive ) {
+                    if (this._alive) {
                         // Game.gameOver = true;
                         Game.respawnPlayer();
                         // super.kill();
@@ -1152,7 +1167,7 @@
                         this.y = 0;
                     }
                 }
-                spawn (x,y) {
+                spawn(x, y) {
                     this.x = x;
                     this.y = y;
                     this.xspeed = this.yspeed = 0;
@@ -1160,7 +1175,7 @@
                     this._alive = true;
                     this.hp = this._maxHP;
                 }
-                get alive () {
+                get alive() {
                     return this._alive;
                 }
             }
@@ -1173,8 +1188,8 @@
             ============================================
             */
             class GooseShip extends Ship {
-                constructor (x,y,rot) {
-                    super (7,14,x,y,rot);
+                constructor(x, y, rot) {
+                    super(7, 14, x, y, rot);
 
                     this._maxthrust = 14;
                     this._maxShots = 5;
@@ -1191,9 +1206,9 @@
                     this._leader = playerShip;
                     this._degToTarget = 0;
                 }
-                draw () {
+                draw() {
 
-                    
+
 
                     super.draw();
                     /*
@@ -1320,55 +1335,59 @@
                     ctx.setLineDash([]);
                     */
                 }
-                fly () {
+                fly() {
                     // Set Target XY
                     this._index = this.myArray.indexOf(this);
-                    let sign = this._index %2 === 0 ? -1 : 1;
+                    let sign = this._index % 2 === 0 ? -1 : 1;
                     let leaderWidth = this._leader.shipWidth;
-                    let formationdist = leaderWidth*4 + Math.floor( this._index * 0.5 ) * leaderWidth*4;
+                    let formationdist = leaderWidth * 3 + Math.floor(this._index * 0.5) * leaderWidth * 3;
                     let leader = this._leader;
-                    let leaderRadian = degToRad( addAngles( leader.rotation, 120 * sign) );
+                    let leaderRadian = degToRad(addAngles(leader.rotation, 120 * sign));
 
-                    let targetX = this.targetX = leader.x + Math.cos( leaderRadian ) * formationdist;
-                    let targetY = this.targetY = leader.y + Math.sin( leaderRadian ) * formationdist;
+                    let targetX = this.targetX = leader.x + Math.cos(leaderRadian) * formationdist;
+                    let targetY = this.targetY = leader.y + Math.sin(leaderRadian) * formationdist;
                     //
                     // How many frames away at Goose's current speed is targetXY ?
                     // move targetXY that many frames at target's momentumXY
                     let xDiff = targetX - this.x;
                     let yDiff = targetY - this.y;
-                    let targetDist = Math.sqrt ( xDiff * xDiff + yDiff * yDiff );
+
+                    this.x += xDiff * 0.05;
+                    this.y += yDiff * 0.05;
+
+                    let targetDist = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
                     let framesAway = targetDist / this.vector.magnitude;
-                    if ( targetDist > this.shipWidth * 4 && ( this.vector.magnitude > 1 || leader.vector.magnitude > 1 ) ) {
-                        
-                        let leadX = Math.cos( this._leader.vector.angle ) * framesAway*leader.vector.magnitude;
-                        let leadY = Math.sin( this._leader.vector.angle ) * framesAway*leader.vector.magnitude;
+                    if (targetDist > this.shipWidth * 4 && (this.vector.magnitude > 1 || leader.vector.magnitude > 1)) {
+
+                        let leadX = Math.cos(this._leader.vector.angle) * framesAway * leader.vector.magnitude;
+                        let leadY = Math.sin(this._leader.vector.angle) * framesAway * leader.vector.magnitude;
                         console.log(`framesAway: ${framesAway}\nleadX,Y: ${leadX},${leadY}`);
                         targetX = this.targetX += leadX;
                         targetY = this.targetY += leadY;
                         xDiff = targetX - this.x;
                         yDiff = targetY - this.y;
-                        targetDist = Math.sqrt ( xDiff * xDiff + yDiff * yDiff );
+                        targetDist = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
                     }
-                    let targetRadian = Math.atan2( yDiff, xDiff );
-                    let degreesToTarget = radToDeg ( targetRadian );                    
-                    
-                    let mA = radToDeg( this.vector.angle );
-                    if ( this.vector.magnitude > 1 && Math.abs( degDiff(degreesToTarget, mA) ) < 90 ) { //
+                    let targetRadian = Math.atan2(yDiff, xDiff);
+                    let degreesToTarget = radToDeg(targetRadian);
+
+                    let mA = radToDeg(this.vector.angle);
+                    if (this.vector.magnitude > 1 && Math.abs(degDiff(degreesToTarget, mA)) < 90) { //
                         // Facing towards targetXY
                         // tA (target angle)
                         // mA (momentum angle)
                         // rA (reflected angle - mA reflected in tA)
                         // ttA (true target angle)
-                        
+
                         let tA = degreesToTarget;
-                        let rA = addAngles( tA, degDiff( tA, mA ) );
-                        let aDiff = degDiff( rA, tA );
-                        let ttA = addAngles( tA, aDiff*0.5 );
+                        let rA = addAngles(tA, degDiff(tA, mA));
+                        let aDiff = degDiff(rA, tA);
+                        let ttA = addAngles(tA, aDiff * 0.5);
                         console.log(
                             `mA: ${mA}\n
                             degToTar: ${degreesToTarget}\n
                             ta: ${tA}\n
-                            degDiff(tA,mA): ${degDiff( tA, mA )}\n
+                            degDiff(tA,mA): ${degDiff(tA, mA)}\n
                             ra: ${rA}\n
                             aDiff: ${aDiff}\n
                             ttA: ${ttA}`);
@@ -1377,54 +1396,54 @@
                     } else {
                         // this._fillColor = "yellow";
                     }
-                    
+
                     this._degToTarget = degreesToTarget;
                     let mAtoTargetDiff = Math.abs(degDiff(degreesToTarget, mA));
                     let rotToTargetDiff = Math.abs(degDiff(degreesToTarget, this.rotation));
 
-                    if ( rotToTargetDiff < 70 &&
-                        ( mAtoTargetDiff > 90 ||  this.vector.magnitude < targetDist / 10 )
+                    if (rotToTargetDiff < 70 &&
+                        (mAtoTargetDiff > 90 || this.vector.magnitude < targetDist / 10)
                     ) { // 
                         this.thrust();
-                    } else if ( this.speed > leader.speed ) {
+                    } else if (this.speed > leader.speed) {
                         this.brake();
                     }
                     let targetDegrees = degreesToTarget;
 
-                    if ( targetDist > this.shipWidth * 30 ) {
+                    if (targetDist > this.shipWidth * 30) {
                         this._fillColor = "yellow";
                         // if ( Math.abs( degDiff(degreesToTarget,this.rotation) ) < 70 ) {
                         //     this.thrust();
                         // }
                         // this.steer( degreesToTarget );
-                    } else if ( targetDist < this.shipWidth * 20 ) {
+                    } else if (targetDist < this.shipWidth * 20) {
                         this._fillColor = "orange";
                         // slide a little towards target...
                         //if ( targetDist > 5 || Math.abs( degDiff( degreesToTarget, this.rotation )) < 15 ) {
-                            let slideDist = Math.min( this.shipWidth, targetDist * 0.07);
-                            this.x += Math.cos( degToRad( degreesToTarget ) ) * slideDist;
-                            this.y += Math.sin( degToRad( degreesToTarget ) ) * slideDist;
+                        let slideDist = Math.min(this.shipWidth, targetDist * 0.07);
+                        this.x += Math.cos(degToRad(degreesToTarget)) * slideDist;
+                        this.y += Math.sin(degToRad(degreesToTarget)) * slideDist;
                         //}
                         targetDegrees = leader.rotation;
                         // if ( leader.vector.magnitude > this.vector.magnitude ) {
                         //     this.thrust();
                         // }
-                        
-                    } else { 
+
+                    } else {
                         this._fillColor = "red";
                     }
-                    this.steer( targetDegrees );
+                    this.steer(targetDegrees);
 
 
                     // Time to Fire?
-                    for ( let opponent of this._myOpponents ) {
+                    for (let opponent of this._myOpponents) {
                         // if opponent is in front of me and close enough
-                        let radToOpp = Math.atan2 ( opponent.y - this.y, opponent.x - this.x );
-                        let oppAngle = degDiff( radToDeg( radToOpp ), this.rotation );
+                        let radToOpp = Math.atan2(opponent.y - this.y, opponent.x - this.x);
+                        let oppAngle = degDiff(radToDeg(radToOpp), this.rotation);
                         // Don't fire at your leader
-                        let radToLeader = Math.atan2 ( leader.y - this.y, leader.x - this.x );
-                        let leaderAngle = degDiff( radToDeg( radToLeader ), this.rotation );
-                        if ( Math.abs( oppAngle ) < 30 && distance( opponent, this ) < 1000 && Math.abs( leaderAngle ) > 40 ) {
+                        let radToLeader = Math.atan2(leader.y - this.y, leader.x - this.x);
+                        let leaderAngle = degDiff(radToDeg(radToLeader), this.rotation);
+                        if (Math.abs(oppAngle) < 30 && distance(opponent, this) < 1000 && Math.abs(leaderAngle) > 40) {
                             this.shoot();
                         }
                     }
@@ -1486,36 +1505,36 @@
                     // this.y = targetY;
                     // this.rotation = leader.rotation;
                 }
-                steer ( deg ) {
-                    let degTurn = degDiff( deg, this.rotation );
-                    if ( degTurn > 5 ) {
+                steer(deg) {
+                    let degTurn = degDiff(deg, this.rotation);
+                    if (degTurn > 5) {
                         this.turnRight(10);
-                    } else if ( degTurn < -5 ) {
+                    } else if (degTurn < -5) {
                         this.turnLeft(10);
-                    } else if ( degTurn > 0 ) {
-                        this.turnRight( degTurn );
-                    } else if ( degTurn < 0 ) {
-                        this.turnLeft( degTurn );
+                    } else if (degTurn > 0) {
+                        this.turnRight(degTurn);
+                    } else if (degTurn < 0) {
+                        this.turnLeft(degTurn);
                     }
                 }
-                brake () {
-                    if ( this.thrust > 2 ) this.thrust( -1 );
+                brake() {
+                    if (this.thrust > 2) this.thrust(-1);
                 }
-                set index ( value ) {
-                    if ( typeof( value ) === "number" ) {
+                set index(value) {
+                    if (typeof (value) === "number") {
                         this._index = value;
                     }
                 }
-                get index () {
+                get index() {
                     return this._index;
                 }
-                
-                set myOpponents ( value ) {
-                    if ( Array.isArray( value) ) {
+
+                set myOpponents(value) {
+                    if (Array.isArray(value)) {
                         this._myOpponents = value;
                     }
                 }
-                get myOpponents () {
+                get myOpponents() {
                     return this._myOpponents;
                 }
             }
@@ -1529,15 +1548,15 @@
             */
 
             class Shield extends GameElement {
-                constructor( shieldedElementWidth ){
+                constructor(shieldedElementWidth) {
                     // Can't get shieldedElement.width because its width method checks 
                     // its .shield property, which isnt defined until this has been created
                     // Better solution?  I guess we can pass only width, don't need game element itself
-                    
+
                     super();
                     // this._shielded = shieldedElement;
                     this._active = false;
-                    
+
                     this._color = this._fullColor = "#0099FF";
                     this._emptyColor = "#FF0000";
                     this._hitColor = "#FFFF55";
@@ -1545,7 +1564,7 @@
                     this._explosive = false;
                     this.hp = this._maxHP = 10;
                 }
-                draw(){
+                draw() {
                     this.predraw();
 
                     // Draw Shields
@@ -1558,52 +1577,52 @@
 
                     this.postdraw();
                 }
-                takeDamage (amount) {
-                    if ( typeof amount === "number" ) {
+                takeDamage(amount) {
+                    if (typeof amount === "number") {
                         this.hp -= amount;
                         TweenLite.killTweensOf(this);
-                        if ( this.hp <= 0 ) {
+                        if (this.hp <= 0) {
                             this._active = false;
                         } else {
                             // flash bright, then fade down to color between full and empty
-                            this.flashColor( this._hitColor, this.calculateColor() );
+                            this.flashColor(this._hitColor, this.calculateColor());
                         }
                     }
                 }
-                flashColor ( startColor, endColor ) {
+                flashColor(startColor, endColor) {
                     endColor = endColor != undefined ? endColor : this._color;
                     let that = this;
                     let updateColor = function () {
-                        let pct = Math.round(this.totalProgress()*100);
-                        that._color = mixHexColors( startColor, endColor, pct);
+                        let pct = Math.round(this.totalProgress() * 100);
+                        that._color = mixHexColors(startColor, endColor, pct);
                     }
-                    TweenLite.to(this, 0.5, { ease: Power2.easeIn, onUpdate:updateColor});
+                    TweenLite.to(this, 0.5, { ease: Power2.easeIn, onUpdate: updateColor });
                 }
-                calculateColor () {
-                    let colorPct = Math.min ( 100, Math.round( 100 * this.hp / this._maxHP ) );
+                calculateColor() {
+                    let colorPct = Math.min(100, Math.round(100 * this.hp / this._maxHP));
                     return mixHexColors(this._emptyColor, this._fullColor, colorPct);
                 }
-                set hp (value) {
+                set hp(value) {
                     super.hp = value;
-                    if ( typeof value === 'number' && value > 0 ) {
+                    if (typeof value === 'number' && value > 0) {
                         // set shield color when shield is turned on and hp added.
                         this._color = this.calculateColor();
                         // when hp lessens, color is set with a Tween
                     }
                 }
-                get hp () {
+                get hp() {
                     return super.hp;
                 }
-                get active () {
+                get active() {
                     return this._active;
                 }
-                set active (value) {
+                set active(value) {
                     this._active = !!value;
                 }
-                get on () {
+                get on() {
                     return this._active;
                 }
-                set on (value) {
+                set on(value) {
                     this.active = !!value;
                 }
 
@@ -1617,7 +1636,7 @@
             */
 
             class Shot extends GameElement {
-                constructor (x, y, xspeed, yspeed, ship) {
+                constructor(x, y, xspeed, yspeed, ship) {
                     super();
                     // init
                     // this.explodeColors = ["#0099FF","#99CCFF"];
@@ -1636,25 +1655,25 @@
                     this._maxPositions = 10;
                     // console.log("Shot constructor(), mass: "+this.mass);
                 }
-                move () {
+                move() {
                     // store position for trail
-                    this._positions.push( {x:this.x,y:this.y} );
+                    this._positions.push({ x: this.x, y: this.y });
                     // get rid of first item
                     if (this._positions.length > this._maxPositions) {
                         this._positions.shift();
                     }
 
                     super.move();
-                    
-                    if ( Game.currentTime >= this._startTime + this._lifeSpan ) {
+
+                    if (Game.currentTime >= this._startTime + this._lifeSpan) {
                         this.kill();
                     }
                 }
-                draw () {
+                draw() {
                     // draw trail
                     for (var i = 0; i < this._positions.length; i++) {
                         var ratio = (i + 1) / this._positions.length;
-                        
+
                         ctx.beginPath();
                         ctx.arc(this._positions[i].x, this._positions[i].y, this.width * 0.5, 0, 2 * Math.PI, true);
                         ctx.fillStyle = "rgba(0, 255, 200, " + ratio * 0.5 + ")";
@@ -1679,10 +1698,10 @@
                     */
                 }
 
-                kill () {
+                kill() {
                     // console.log(`Shot.kill()`);
                     // v what happends if this.myShip is already destroyed?
-                    this.myShip.liveShots --;
+                    this.myShip.liveShots--;
                     super.kill();
                 }
             }
@@ -1695,7 +1714,7 @@
             ============================================
             */
             class Debris extends GameElement {
-                constructor (x,y,xspeed,yspeed,diameter,lifespan,fillColor) {
+                constructor(x, y, xspeed, yspeed, diameter, lifespan, fillColor) {
                     super();
                     this._startTime = Game.currentTime;
                     this._lifespan = lifespan;
@@ -1707,20 +1726,20 @@
                     this._fillColor = fillColor || Game.fillColor;
                     this._decelerate = false;
                 }
-                move () {
+                move() {
                     super.move();
                     Game.keepInBounds(this);
-                    if ( this.decelerate ) {
+                    if (this.decelerate) {
                         // this.xspeed *= 0.97;
                         this.xspeed -= this.xspeed * 0.03 * Game.frameInterpolation;
                         // this.yspeed *= 0.97;
                         this.yspeed -= this.yspeed * 0.03 * Game.frameInterpolation;
                     }
-                    if ( Game.currentTime >= this._startTime + this._lifespan ) {
+                    if (Game.currentTime >= this._startTime + this._lifespan) {
                         this.kill();
                     }
                 }
-                draw () {
+                draw() {
 
                     // Draw a circle
                     ctx.beginPath();
@@ -1728,10 +1747,10 @@
                     ctx.fillStyle = this._fillColor;
                     ctx.fill();
                 }
-                get decelerate () {
+                get decelerate() {
                     return this._decelerate;
                 }
-                set decelerate ( booleanValue ) {
+                set decelerate(booleanValue) {
                     this._decelerate = !!booleanValue;
                 }
 
@@ -1744,113 +1763,113 @@
             ============================================
             */
             class BlackHole extends GameElement {
-                constructor ( x, y ) {
+                constructor(x, y) {
                     // console.log("new BlackHole()");
                     super();
                     this._maxDiameter = 400;
                     let margin = this._maxDiameter * 0.5;
-                    this.x = x || margin + Math.random() * ( canvas.width - 2*margin );
-                    this.y = y || margin + Math.random() * ( canvas.height - 2*margin );
+                    this.x = x || margin + Math.random() * (canvas.width - 2 * margin);
+                    this.y = y || margin + Math.random() * (canvas.height - 2 * margin);
                     this._minDiameter = 10;
                     this._diameter = this.minDiameter;
                     this._startColor = '#332277';
                     this._endColor = "#5566CC";
-                    
+
                     this._maxAge = 8000; //ms
                     this._contracting = false;
                     this._startTime = Game.currentTime;
                     this._explosive = false;
                 }
-                draw () {                    
+                draw() {
                     // Draw a circle
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this._diameter * 0.5, 0, 2 * Math.PI);
                     let innerRadius = 0.1 * this._diameter;
-                    let color1,color2,stop2;
-                    if ( this.isContracting ) {
+                    let color1, color2, stop2;
+                    if (this.isContracting) {
                         color1 = this._startColor;
                         color2 = this._endColor;
                         innerRadius = 0;
                         stop2 = 0.85;
                     } else {
                         color1 = '#000000';
-                        color2 = mixHexColors(this._startColor, this._endColor, this.lifePercent*100); //;
-                        innerRadius += this.lifePercent * (0.4*this.width);
+                        color2 = mixHexColors(this._startColor, this._endColor, this.lifePercent * 100); //;
+                        innerRadius += this.lifePercent * (0.4 * this.width);
                         stop2 = 0.2;
                     }
-                    var gradient = ctx.createRadialGradient(this.x,this.y,innerRadius, this.x,this.y,this.width*0.5);
+                    var gradient = ctx.createRadialGradient(this.x, this.y, innerRadius, this.x, this.y, this.width * 0.5);
 
                     // Add color stops
-                    gradient.addColorStop(0, color1 );
-                    gradient.addColorStop(stop2, color2 );
-                    gradient.addColorStop(1, '#110033' );
+                    gradient.addColorStop(0, color1);
+                    gradient.addColorStop(stop2, color2);
+                    gradient.addColorStop(1, '#110033');
 
                     ctx.fillStyle = gradient;
-                    
+
                     ctx.fill();
                 }
-                move () {
-                    if ( this.isContracting ) {
+                move() {
+                    if (this.isContracting) {
                         // Contract
                         this._diameter -= 50 * Game.frameInterpolation;
-                        if ( this._diameter <= 20 ) {
+                        if (this._diameter <= 20) {
                             super.kill();
                             this.kill();
                         }
                     } else {
                         // Grow
-                        if ( this.age >= this._maxAge ) {
+                        if (this.age >= this._maxAge) {
                             this.contract();
                         } else {
                             this._diameter = this._minDiameter + (this._maxDiameter - this._minDiameter) * this.lifePercent;
                         }
                     }
                     // generate debris
-                    if ( Math.random() < 0.5 ) {
-                        let dist = this.width*0.5 + Math.random()*this.width * 0.5 + 20;
+                    if (Math.random() < 0.5) {
+                        let dist = this.width * 0.5 + Math.random() * this.width * 0.5 + 20;
                         let rad = Math.random() * (Math.PI * 2);
                         let x = this.x + Math.cos(rad) * dist;
-                        let y = this.y + Math.sin(rad) * dist; 
-                        let xspeed = -2 + Math.random()*4;
-                        let yspeed = -2 + Math.random()*4;
+                        let y = this.y + Math.sin(rad) * dist;
+                        let xspeed = -2 + Math.random() * 4;
+                        let yspeed = -2 + Math.random() * 4;
                         let lifespan = 300 + this.lifePercent * 500;
-                        let diameter = 3 + Math.random()*3;
-                        let debris = new Debris ( x,y,xspeed,yspeed, diameter, lifespan,'#5566CC' );
+                        let diameter = 3 + Math.random() * 3;
+                        let debris = new Debris(x, y, xspeed, yspeed, diameter, lifespan, '#5566CC');
                         debris.myArray = Game.debris;
                     }
-                    
+
                 }
-                contract () {
+                contract() {
                     // turn into black hole,
                     // destroying everything within its circle
                     this._contracting = true;
                     this._startColor = "#990022";
                     this._endColor = "#000000";
                 }
-                kill () {
+                kill() {
                     // Do nothing
                     // Call super.kill() when I've contracted
                 }
-                get isContracting () {
+                get isContracting() {
                     return this._contracting;
                 }
-                get lifePercent () {
+                get lifePercent() {
                     return this.age / this._maxAge;
                 }
-                get age () {
+                get age() {
                     return Game.currentTime - this._startTime;
                 }
             }
 
-             /*
-            ============================================
+            /*
+           ============================================
 
-                        PRIZE CLASS
+                       PRIZE CLASS
 
-            ============================================
-            */
+           ============================================
+           */
             class Prize extends GameElement {
-                constructor ( x, y, type ) {
+                constructor(x, y, type) {
                     console.log("new Prize()");
                     super();
                     this.x = x || Math.random() * canvas.width;
@@ -1862,38 +1881,38 @@
                     this._maxAge = 28000; //ms
                     this._type = type; // SHIELD, DOUBLE_SHOT, WING_MAN
                 }
-                draw () {
+                draw() {
                     this.predraw();
 
                     // Draw Prize 
 
                     // dot/icon
                     ctx.beginPath();
-                    if ( this._type === "shield" ) {
+                    if (this._type === "shield") {
                         ctx.arc(0, 0, this._radius * 0.4, 0, 2 * Math.PI);
                         ctx.strokeStyle = this._dotColor;
                         ctx.setLineDash([4, 4]);
                         ctx.stroke();
                         ctx.setLineDash([]);
-                    } else if ( this._type === "doubleShot" ) {
+                    } else if (this._type === "doubleShot") {
                         ctx.arc(-this._radius * 0.3, 0, this._radius * 0.2, 0, 2 * Math.PI);
                         ctx.arc(this._radius * 0.3, 0, this._radius * 0.2, 0, 2 * Math.PI);
                         ctx.fillStyle = this._dotColor;
                         ctx.fill();
-                    } else if ( this._type === "wingMan" ) {
+                    } else if (this._type === "wingMan") {
                         let w = this._radius * 0.15;
                         let h = this._radius * 0.3;
-                        ctx.moveTo( w, h );
-                        ctx.lineTo( 0-w, h );
-                        ctx.lineTo( 0, 0-h );
-                        ctx.lineTo( w, h );
+                        ctx.moveTo(w, h);
+                        ctx.lineTo(0 - w, h);
+                        ctx.lineTo(0, 0 - h);
+                        ctx.lineTo(w, h);
                         ctx.fillStyle = this._dotColor;
                         ctx.fill();
                     }
 
                     // rings
-                    let pct = ( this.age % 1000 ) / 1000;
-                    let pct2 = ( pct + 0.5 ) % 1;
+                    let pct = (this.age % 1000) / 1000;
+                    let pct2 = (pct + 0.5) % 1;
                     ctx.beginPath();
                     ctx.arc(0, 0, this._radius * pct, 0, 2 * Math.PI);
                     ctx.strokeStyle = '#0088FF';
@@ -1903,16 +1922,16 @@
                     ctx.arc(0, 0, this._radius * pct2, 0, 2 * Math.PI);
                     ctx.strokeStyle = this._ringColor;
                     ctx.stroke();
-                    
+
                     this.postdraw();
                 }
-                move () {
-                    if ( this.age >= this._maxAge ) {
+                move() {
+                    if (this.age >= this._maxAge) {
                         this.kill();
                     }
                 }
-                collect ( collector ) {
-                    switch ( this.type ) {
+                collect(collector) {
+                    switch (this.type) {
                         case "shield":
                             // turn collector's shield on
                             collector.shield.on = true;
@@ -1926,29 +1945,29 @@
                             break;
                         case "wingMan":
                             // add wingman to collector's fleet
-                            let gooseShip = new GooseShip( this.x, this.y, 0 );
+                            let gooseShip = new GooseShip(this.x, this.y, 0);
                             gooseShip.shield.on = false;
                             gooseShip.myArray = Game.geese;
                             break;
                         default:
                     }
-                    let burst = new CircleBurst( collector, "#00FF00" );
+                    let burst = new CircleBurst(collector, "#00FF00");
                     burst.myArray = Game.graphics;
                     this.kill();
                 }
-                get type () {
+                get type() {
                     return this._type;
                 }
             }
-             /*
-            ============================================
+            /*
+           ============================================
 
-                        CIRCLE BURST CLASS
+                       CIRCLE BURST CLASS
 
-            ============================================
-            */
+           ============================================
+           */
             class CircleBurst extends GameElement {
-                constructor ( element, color ) {
+                constructor(element, color) {
                     console.log("new CircleBurst()");
                     super();
                     this._minR = element.width * 0.5;
@@ -1958,42 +1977,42 @@
                     this._color = this._startColor = color;
                     this.burst();
                 }
-                draw () {
+                draw() {
                     this.predraw();
 
                     // draw a circle
                     ctx.beginPath();
-                    ctx.arc( this._targetElement.x, this._targetElement.y, this._radius, 0, 2 * Math.PI );
+                    ctx.arc(this._targetElement.x, this._targetElement.y, this._radius, 0, 2 * Math.PI);
                     ctx.strokeStyle = this._color;
                     ctx.stroke();
 
                     this.postdraw();
                 }
 
-                burst () {
+                burst() {
                     console.log(`CircleBurst.burst()`);
                     let that = this;
                     let updateCircle = function () {
-                        let pct = this.totalProgress().toFixed( 2 );
-                        that._color = setAlpha( that._startColor, 1-pct );
-                        that._radius = that._minR + (that._maxR-that._minR) * pct;
+                        let pct = this.totalProgress().toFixed(2);
+                        that._color = setAlpha(that._startColor, 1 - pct);
+                        that._radius = that._minR + (that._maxR - that._minR) * pct;
                     }
                     let completeCircle = function () {
                         that.kill();
                     }
-                    TweenLite.to( this, 0.5, { ease: Power2.easeOut, onUpdate:updateCircle, onComplete:completeCircle });
+                    TweenLite.to(this, 0.5, { ease: Power2.easeOut, onUpdate: updateCircle, onComplete: completeCircle });
                 }
             }
 
-             /*
-            ============================================
+            /*
+           ============================================
 
-                        POINTS DISPLAY CLASS
+                       POINTS DISPLAY CLASS
 
-            ============================================
-            */
+           ============================================
+           */
             class PointsDisplay extends GameElement {
-                constructor ( x, y, number ) {
+                constructor(x, y, number) {
                     console.log("new PointsDisplay()");
                     super();
                     this._number = number;
@@ -2003,7 +2022,7 @@
                     this._riseDist = canvas.height * 0.1;
                     this.rise();
                 }
-                draw () {
+                draw() {
                     this.predraw();
 
                     // draw points
@@ -2012,21 +2031,21 @@
                     ctx.fillStyle = this._number < 0 ? "#ff3333" : "#4fff33";
                     ctx.strokeStyle = "black";
                     // ctx.lineWidth = "10px";
-                    ctx.strokeText( this._numberString, 0, 0 );
-                    ctx.fillText( this._numberString, 0, 0 );
+                    ctx.strokeText(this._numberString, 0, 0);
+                    ctx.fillText(this._numberString, 0, 0);
 
                     this.postdraw();
                 }
-                move () {
+                move() {
 
                 }
-                rise () {
+                rise() {
                     let that = this;
                     let newY = this.y - this._riseDist;
                     let completePoints = function () {
                         that.kill();
                     }
-                    TweenLite.to( this, 1, { y:newY, ease: Power1.easeOut, onComplete:completePoints });
+                    TweenLite.to(this, 1, { y: newY, ease: Power1.easeOut, onComplete: completePoints });
                 }
             }
 
@@ -2054,14 +2073,14 @@
             */
             const canvas = document.getElementById('myCanvas');
             const backCanvas = document.getElementById('backCanvas');
-            
-            function sizeCanvas () {
+
+            function sizeCanvas() {
                 let targetWidth = 1920;
                 let targetHeight = 1080;
                 let windowDims = getWindowDimensions();
                 let wW = windowDims.width;
                 let wH = windowDims.height;
-                let scale = 0.5 + 0.5 * ( targetWidth + targetHeight ) / ( wW + wH ); // = 1
+                let scale = 0.5 + 0.5 * (targetWidth + targetHeight) / (wW + wH); // = 1
                 // let trueArea = wW * wH;
                 // let targetArea = targetWidth * targetHeight;
                 // let scale = Math.max( 1, targetArea / trueArea );
@@ -2070,25 +2089,26 @@
                 backCanvas.width = canvas.width = wW * scale;
                 backCanvas.height = canvas.height = wH * scale;
                 backCanvas.style.transformOrigin = canvas.style.transformOrigin = "top left";
-                backCanvas.style.transform = canvas.style.transform = `scale(${1/scale})`;
+                backCanvas.style.transform = canvas.style.transform = `scale(${1 / scale})`;
                 // window.devicePixelRatio; 
                 backCtx.lineWidth = ctx.lineWidth = 2 * scale;
             }
             const ctx = canvas.getContext('2d');
             const backCtx = backCanvas.getContext('2d');
-            
+
             sizeCanvas();
             let x = 200;
             let y = 100;
             function drawRect() {
-                x+=5;
-                y+=5;
+                x += 5;
+                y += 5;
                 backCtx.beginPath();
                 backCtx.rect(x, y, 300, 300);
                 backCtx.strokeStyle = '#FF0000';
                 backCtx.stroke();
-                
+
             }
+            /*
             drawRect();
             let times = 0;
             let tID = setInterval(function(){
@@ -2124,20 +2144,21 @@
                 stackBlurCanvasRGBA("backCanvas", 0, 0, backCanvas.width, backCanvas.height, 9);
                 console.log(`done fadeBGctx`);
             }
-            
+            */
+
             let px = canvas.width * 0.5 - 5;
             let py = canvas.height * 0.5 - 10;
-            let playerShip = new PlayerShip(10,20,px,py,0);
+            let playerShip = new PlayerShip(16, 20, px, py, 0);
             playerShip.shield.on = false;
-            
+
             playerShip.shield.hp += 1000;
-            let gooseShip = new GooseShip(px,py,0);
+            let gooseShip = new GooseShip(px, py, 0);
             gooseShip.myArray = Game.geese;
-            let gooseShip2 = new GooseShip(px,py,0);
+            let gooseShip2 = new GooseShip(px, py, 0);
             gooseShip2.myArray = Game.geese;
-            let gooseShip3 = new GooseShip(px,py,0);
+            let gooseShip3 = new GooseShip(px, py, 0);
             gooseShip3.myArray = Game.geese;
-            let gooseShip4 = new GooseShip(px,py,0);
+            let gooseShip4 = new GooseShip(px, py, 0);
             gooseShip4.myArray = Game.geese;
             Game.spawnOpponent();
             // Game.spawn ( Ship, Game.opponents );
@@ -2163,65 +2184,65 @@
 
             ============================================
             */
-            function constrainDegree (deg) {
+            function constrainDegree(deg) {
                 // console.log(`${deg}-mod-360: ${Math.round(mod( (deg + 180), 360 ) -180)}
                 //            vs${deg}-%-360: ${Math.round( (deg+180)% 360 - 180)}`);
-                
-                function mod (a,n) {
-                    return a - Math.floor(a/n) * n; //a % n; //
-                } 
-                return mod( (deg+180), 360 ) -180; // is (diff+180) % 360
+
+                function mod(a, n) {
+                    return a - Math.floor(a / n) * n; //a % n; //
+                }
+                return mod((deg + 180), 360) - 180; // is (diff+180) % 360
             }
 
-            function radToDeg (rad) {
-                return constrainDegree (rad * 180 / Math.PI);
+            function radToDeg(rad) {
+                return constrainDegree(rad * 180 / Math.PI);
             }
-            function degToRad (deg) {
-                return deg *  Math.PI / 180; 
+            function degToRad(deg) {
+                return deg * Math.PI / 180;
             }
-            function addAngles (deg1, deg2) {
-                return constrainDegree ( deg1 + deg2 );
-            }
-
-            function hypotenuse (a,b){
-                return Math.sqrt(a*a+b*b);
+            function addAngles(deg1, deg2) {
+                return constrainDegree(deg1 + deg2);
             }
 
-            function distance ( A, B ) {
+            function hypotenuse(a, b) {
+                return Math.sqrt(a * a + b * b);
+            }
+
+            function distance(A, B) {
                 let xDist = A.x - B.x;
                 let yDist = A.y - B.y;
-                return hypotenuse ( xDist, yDist );
+                return hypotenuse(xDist, yDist);
             }
-            function radianFromTo (A,B) {
-                return Math.atan2( B.y - A.y, B.x - A.x );
+            function radianFromTo(A, B) {
+                return Math.atan2(B.y - A.y, B.x - A.x);
             }
             // console.log(`DEGDIFF(30,90): ${degDiff(30,90)}`);
-            function degDiff (deg2, deg1) {
+            function degDiff(deg2, deg1) {
                 // returns signed smallest difference between 2 angles
                 // got this formula from Stack Overflow:
                 // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
                 let diff = deg2 - deg1;
                 // diff = mod( (diff + 180), 360 ) -180; // is (diff+180) % 360
-                diff = constrainDegree (diff);
+                diff = constrainDegree(diff);
                 // function mod (a,n) {
                 //     return a - Math.floor(a/n) * n;
                 // }
                 return diff;
             }
 
-            function getWindowDimensions () {
+            function getWindowDimensions() {
                 var w = window,
-                d = document,
-                e = d.documentElement,
-                g = d.getElementsByTagName('body')[0],
-                x = w.innerWidth || e.clientWidth || g.clientWidth,
-                y = w.innerHeight|| e.clientHeight|| g.clientHeight;
-                return( {width:x,height:y} );
+                    d = document,
+                    e = d.documentElement,
+                    g = d.getElementsByTagName('body')[0],
+                    x = w.innerWidth || e.clientWidth || g.clientWidth,
+                    y = w.innerHeight || e.clientHeight || g.clientHeight;
+                return ({ width: x, height: y });
             }
 
-            function circleSweepTest( sprite1, sprite2 ) {
+            function circleSweepTest(sprite1, sprite2) {
                 // circ1 and circ2 are Unit objects
-                if ( intersectionTest ( sprite1, sprite2 ) ) {
+                if (intersectionTest(sprite1, sprite2)) {
                     // they are already intersecting
                     return 0;
                 }
@@ -2232,69 +2253,69 @@
                     Byv = sprite2.yspeed;
 
                 var maxint = 10000;
-                /* Returns the amount of frames until a collision will occur */ 
+                /* Returns the amount of frames until a collision will occur */
                 var t = maxint;
                 var A, B, C, D, DISC;
-                /* Breaking down the formula for t */ 
-                A = Math.pow( Axv, 2 ) + Math.pow( Ayv, 2 ) - 2 * Axv * Bxv + Math.pow( Bxv, 2 ) - 2 * Ayv * Byv + Math.pow( Byv, 2 );
+                /* Breaking down the formula for t */
+                A = Math.pow(Axv, 2) + Math.pow(Ayv, 2) - 2 * Axv * Bxv + Math.pow(Bxv, 2) - 2 * Ayv * Byv + Math.pow(Byv, 2);
                 B = -sprite1.x * Axv - sprite1.y * Ayv + Axv * sprite2.x + Ayv * sprite2.y + sprite1.x * Bxv - sprite2.x * Bxv + sprite1.y * Byv - sprite2.y * Byv;
-                C = Math.pow( Axv, 2 ) + Math.pow( Ayv, 2 ) - 2 * Axv * Bxv + Math.pow( Bxv, 2 ) - 2 * Ayv * Byv + Math.pow( Byv, 2 );
-                D = Math.pow( sprite1.x, 2 ) + Math.pow( sprite1.y, 2 ) - Math.pow( sprite1.width*0.5, 2 ) - 2 * sprite1.x * sprite2.x + Math.pow( sprite2.x, 2 ) - 2 * sprite1.y * sprite2.y + Math.pow( sprite2.y, 2 ) - 2 * sprite1.width*0.5 * sprite2.width*0.5 - Math.pow( sprite2.width*0.5, 2 );
-                DISC = Math.pow( (-2 * B), 2 ) - 4 * C * D;
+                C = Math.pow(Axv, 2) + Math.pow(Ayv, 2) - 2 * Axv * Bxv + Math.pow(Bxv, 2) - 2 * Ayv * Byv + Math.pow(Byv, 2);
+                D = Math.pow(sprite1.x, 2) + Math.pow(sprite1.y, 2) - Math.pow(sprite1.width * 0.5, 2) - 2 * sprite1.x * sprite2.x + Math.pow(sprite2.x, 2) - 2 * sprite1.y * sprite2.y + Math.pow(sprite2.y, 2) - 2 * sprite1.width * 0.5 * sprite2.width * 0.5 - Math.pow(sprite2.width * 0.5, 2);
+                DISC = Math.pow((-2 * B), 2) - 4 * C * D;
 
                 /* If the discriminent is non negative, a collision will occur and * 
                 * we must compare the time to our current time of collision. We   * 
                 * udate the time if we find a collision that has occurd earlier   * 
-                * than the previous one.                                          */ 
-                if ( DISC >= 0 ) {
-                    /* We want the smallest time */ 
-                    t = Math.min (Math.min (t, 0.5 * (2 * B - Math.sqrt (DISC)) / A), 0.5 * (2 * B + Math.sqrt (DISC)) / A);
+                * than the previous one.                                          */
+                if (DISC >= 0) {
+                    /* We want the smallest time */
+                    t = Math.min(Math.min(t, 0.5 * (2 * B - Math.sqrt(DISC)) / A), 0.5 * (2 * B + Math.sqrt(DISC)) / A);
                 }
                 return t;
             }
 
-            function getCollisionPoint ( A, B ) {
+            function getCollisionPoint(A, B) {
                 // A and B are Unit objects
                 // Does this assume the two circles are touching?
                 var Aradius = A.width * 0.5;
                 var Bradius = B.width * 0.5;
-                var collisionPointX = 
-                ((A.x * Bradius) + (B.x * Aradius)) / (Aradius + Bradius);
-    
-                var collisionPointY = 
-                ((A.y * Bradius) + (B.y * Aradius )) / (Aradius + Bradius);
-                return { x : collisionPointX, y : collisionPointY };
+                var collisionPointX =
+                    ((A.x * Bradius) + (B.x * Aradius)) / (Aradius + Bradius);
+
+                var collisionPointY =
+                    ((A.y * Bradius) + (B.y * Aradius)) / (Aradius + Bradius);
+                return { x: collisionPointX, y: collisionPointY };
             }
 
-            function transferMomentum( A, B ) {
+            function transferMomentum(A, B) {
                 // A and B are Unit objects at point of collision
 
                 // distance
-                var d = Math.sqrt ( Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y,2) );
+                var d = Math.sqrt(Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2));
                 // norm vector
-                var n = { x : (B.x - A.x) / d, y : (B.y - A.y) / d };
+                var n = { x: (B.x - A.x) / d, y: (B.y - A.y) / d };
                 // momentum
-                var p = 2 * ( dot( {x : A.xspeed, y : A.yspeed}, n ) - dot( {x : B.xspeed, y : B.yspeed}, n) ) / (A.mass + B.mass);
+                var p = 2 * (dot({ x: A.xspeed, y: A.yspeed }, n) - dot({ x: B.xspeed, y: B.yspeed }, n)) / (A.mass + B.mass);
                 // resultant vectors
                 var wAx = A.xspeed - p * B.mass * n.x;
                 var wAy = A.yspeed - p * B.mass * n.y;
                 var wBx = B.xspeed + p * A.mass * n.x;
                 var wBy = B.yspeed + p * A.mass * n.y;
 
-                return { a : { x : wAx, y : wAy }, b : { x : wBx, y : wBy }, p : (p*B.mass+p*A.mass) }; // What is p here? total momentum?
+                return { a: { x: wAx, y: wAy }, b: { x: wBx, y: wBy }, p: (p * B.mass + p * A.mass) }; // What is p here? total momentum?
 
             }
 
             // vector math
-            function dot( A, B ) {
+            function dot(A, B) {
                 // A and B are {x,y} vectors
                 return A.x * B.x + A.y * B.y;
             }
 
-            function intersectionTest ( sprite1, sprite2 ) {
+            function intersectionTest(sprite1, sprite2) {
                 const xDiff = sprite2.x - sprite1.x;
                 const yDiff = sprite2.y - sprite1.y;
-                const dist = xDiff*xDiff + yDiff * yDiff;
+                const dist = xDiff * xDiff + yDiff * yDiff;
                 const radius = (sprite2.width + sprite1.width) * 0.5;
                 return dist <= radius * radius;
             }
@@ -2308,29 +2329,29 @@
             */
 
             // Arrowkeys
-            Game.setKey ( "left", 37, () => playerShip.turnLeft() );
-            Game.setKey ( "right", 39, () => playerShip.turnRight() );
-            Game.setKey ( "thrust", 38, () => playerShip.thrust() );
+            Game.setKey("left", 37, () => playerShip.turnLeft());
+            Game.setKey("right", 39, () => playerShip.turnRight());
+            Game.setKey("thrust", 38, () => playerShip.thrust());
 
             // WAD
-            Game.setKey ( "thrust", 87, () => playerShip.thrust() );
-            Game.setKey ( "left", 65, () => playerShip.turnLeft() );
-            Game.setKey ( "right", 68, () => playerShip.turnRight() );
+            Game.setKey("thrust", 87, () => playerShip.thrust());
+            Game.setKey("left", 65, () => playerShip.turnLeft());
+            Game.setKey("right", 68, () => playerShip.turnRight());
 
             // Spacebar
-            Game.setKey ( "fire", 32, () => playerShip.shoot() );
+            Game.setKey("fire", 32, () => playerShip.shoot());
 
             // ? Game.setKey ( "thrust", 93, () => playerShip.thrust() );
             // ? Game.setKey ( "thrust", 91, () => playerShip.thrust() );
-            
+
             // Game.setKey ( "pause", 80, Game.pause );
 
-            document.addEventListener( "keydown",  function(e) {
+            document.addEventListener("keydown", function (e) {
                 // console.log("keydown: "+e.which);
                 Game.keyDown(e.which);
                 e.preventDefault();
             });
-            document.addEventListener( "keyup", function(e) {
+            document.addEventListener("keyup", function (e) {
                 Game.keyUp(e.which);
                 e.preventDefault();
             })
@@ -2339,9 +2360,10 @@
 
 
 
-            
 
-       
+
+
     </script>
 </body>
+
 </html>
