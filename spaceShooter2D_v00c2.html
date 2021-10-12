@@ -13,6 +13,7 @@
     <script src="js/colorUtilities.js"></script>
     <script src="js/TweenLite.min.js"></script>
     <script src="js/stackBlur.js"></script>
+    <script src="js/tinycolor.js"></script>
     <style>
         body {
             background-color: #111;
@@ -42,7 +43,8 @@
         }
 
         #fps,
-        #player-shield-strength {
+        #player-shield-strength,
+        #player-flamethrower-duration {
             font-size: 1rem;
             font-family: sans-serif;
             color: #005500;
@@ -52,10 +54,14 @@
             text-align: right;
         }
 
-        #player-shield-strength {
+        #player-shield-strength,
+        #player-flamethrower-duration {
             position: static;
             text-align: left;
             color: green;
+        }
+        #player-flamethrower-duration {
+            color:  red;
         }
 
         #message-field {
@@ -84,6 +90,7 @@
         TURN: <- -> arrows, THRUST: up arrow, FIRE: spacebar
     </p>
     <p id="player-shield-strength"> SHIELD STRENGTH </p>
+    <p id="player-flamethrower-duration"> FLAMETHROWER TIME </p>
     <span id="fps">FPS:</span>
     <span id="score">
         00
@@ -103,10 +110,12 @@
                 const Game = {};
                 // let _intervalId = null;
                 let _fps = 30;
+                Game.targetFPS = _fps;
                 let _fpsArray = [];
                 let _fpsTimer = 0;
                 let _lastTick = performance.now(); // (new Date).getTime();
                 let _timeStep = 1000 / _fps; // target length of a frame
+                Game.targetMSPerFrame = _timeStep;
                 let _pointField = document.getElementById("score");
                 let _backgroundOn = 2;
                 Game.messageField = document.getElementById("message-field");
@@ -121,12 +130,14 @@
                 Game.playerColor = "#333333";
                 Game.opponentColor = "#0055FF";
                 Game.shots = [];
+                Game.flames = [];
                 Game.opponents = [];
                 Game.geese = [];
                 Game.debris = [];
                 Game.blackHoles = [];
                 Game.prizes = [];
                 Game.graphics = [];
+                Game.misc_ar = [];
                 Game.currentTime = 0; // Game clock
                 Game.lastLevelIncreaseTime = 0;
                 Game.nextBlackHoleTime = Game.currentTime + 15000;
@@ -193,6 +204,15 @@
 
                     Game.applyBlackholeGravity();
 
+                    // Move Flames
+                    // let numParticles = 0;
+                    fireBufferCtx.clearRect(0, 0, fireBufferCanvas.width, fireBufferCanvas.height);
+                    for ( let fl of Game.flames ) {  
+                        fl.move();
+                        fl.draw();
+                        // numParticles += fl.particles_ar.length;
+                    }
+
                     // Move Everything
                     Game.moveGamePieces(Game.shots);
                     Game.moveGamePieces(Game.opponents);
@@ -212,6 +232,11 @@
                     Game.drawGamePieces(Game.debris);
                     Game.drawGamePieces(Game.prizes);
                     Game.drawGamePieces(Game.graphics);
+
+                    
+                    // First, determine whether fireBufferCtx has been drawn to this frame
+                    // If so, Draw the fireBufferCtx content onto main Canvas
+                    ctx.drawImage(fireBufferCanvas, 0, 0);
 
                     // Handle spawning
 
@@ -367,8 +392,8 @@
                     let margin = 50;
                     let x = margin + (canvas.width - 2 * margin) * Math.random();
                     let y = margin + (canvas.height - 2 * margin) * Math.random();
-                    let prizes = ["shield", "doubleShot", "wingMan"]
-                    let type = prizes[Math.floor(Math.random() * prizes.length)];
+                    let prizes = ["shield", "doubleShot", "wingMan", "flamethrower"]
+                    let type = "flamethrower"; // prizes[Math.floor(Math.random() * prizes.length)];
                     let testPrize = new Prize(x, y, type);
                     testPrize.myArray = Game.prizes;
                     if (!Game.firstPrizeDone) {
@@ -421,7 +446,7 @@
                 Game.handleCollision = function (A, B, hitTime) {
                     // hitTime is # between 0 and 1 - at what percent of this frame move do they collide
 
-                    let testDamage = 1;
+                    // let testDamage = 1;
 
                     if (A instanceof Prize || B instanceof Prize) {
                         console.log("prize collided");
@@ -434,8 +459,8 @@
                         if (Abounce || Bbounce) {
                             Game.bounce(A, B, hitTime);
                         }
-                        A.takeDamage(testDamage);
-                        B.takeDamage(testDamage);
+                        A.takeDamage(B.damage);
+                        B.takeDamage(A.damage);
                     }
 
                     if (A == playerShip || B == playerShip) {
@@ -507,7 +532,7 @@
                     let x = element.x;
                     let y = element.y;
                     let mass = element.mass;
-                    console.log(`element.mass: ${element.mass}`);
+                    // console.log(`element.mass: ${element.mass}`);
                     let elemYspeed = element.yspeed;
                     let elemXspeed = element.xspeed;
                     // mass = 0 to 1
@@ -515,7 +540,7 @@
                     // console.log("explode, mass: "+mass);
                     let debrisNum = 10 + Math.round(50 * mass);
                     for (let i = 0; i < debrisNum; i++) {
-                        let maxSpeed = 3 + 9 * mass;
+                        let maxSpeed = 5 + 9 * mass;
                         let speed = 0.5 + Math.random() * (maxSpeed - 0.5);
                         let rad = degToRad(Math.random() * 360);
                         let xspeed = Math.cos(rad) * speed + elemXspeed * 0.5;
@@ -708,9 +733,8 @@
             */
 
 
-
-
-
+                    
+            
 
 
             /*          
@@ -721,29 +745,36 @@
             ============================================
             */
             class GameElement {
-                constructor(w, h, x, y, rot) {
+                constructor(data = {}) { // w, h, x, y, rot
                     // console.log("GameElement.constructor()")
-
-                    // init
-                    this._strokeColor = Game.strokeColor;
-                    this._fillColor = Game.fillColor;
-                    this._myArray = null;
-                    this._x = x ? x : 0;
-                    this._y = y ? y : 0;
-                    this._rot = rot ? rot : 0;
-                    this._width = w ? w : 0;
-                    this._height = h ? h : 0;
-                    this._value = 0;
-                    this._xspeed = this._yspeed = 0;
-                    this._hp = 1;
-                    this._maxHP = 1;
-                    this._myTween = null;
-                    this._explosive = true;
-                    this._mass = 1;
-                    this._startTime = Game.currentTime;
-                    this._explodeColors = ["#FF0000", "#FFFF00"];
+                    this.init(data);
                 }
-                predraw() {
+                init(data){
+                
+                    this._x = data.x || 0;
+                    this._y = data.y || 0;
+                    this._yspeed = data.yspeed || 0;
+                    this._xspeed = data.xspeed || 0;
+                    this._width = data.width || data.diameter || 0;
+                    this._height = data.height || data.diameter || 0;
+                    this._diameter = data.diameter || (data.width + data.height) * 0.5 || 0;
+                    this._value = data.value || 0;
+                    this._hp = data.hp || 1;
+                    this._maxHP = data.maxHP || 1;
+                    this._myTween = data.myTween || null;
+                    this._explosive = data.explosive || true;
+                    this._mass = data.mass || 1;
+                    this._rot = constrainDegree(data.rot) || 0;
+                    this._fillColor = data.fillColor || data.color || "#ffffff";
+                    this._strokeColor = data.strokeColor || "#ffffff";
+                    this._strokeWeight = data.strokeWeight || 0;
+                    this._ctx = data.ctx || ctx;
+                    this._startTime = Game.currentTime;
+                    this._explodeColors = ["#FF0000","#FFFF00"];
+                    this.myArray = data.myArray || Game.misc_ar;    
+                    this._damage = data.damage || 0.5;
+                }
+                predraw(ctx = this._ctx) {
                     // rotate and translate
                     ctx.translate(this.x, this.y);
                     const radian = degToRad(this._rot);
@@ -754,7 +785,7 @@
                     // Draw my shape
 
                 }
-                postdraw() {
+                postdraw(ctx = this._ctx) {
                     ctx.rotate(-degToRad(this._rot));
                     ctx.translate(-this.x, -this.y);
                 }
@@ -802,9 +833,15 @@
                 set strokeColor(value) {
                     this._strokeColor = value;
                 }
+                get strokeColor(){
+                    return this._strokeColor;
+                }
 
                 set fillColor(value) {
                     this._fillColor = value;
+                }
+                get fillColor(){
+                    return this._fillColor;
                 }
 
                 get x() {
@@ -828,6 +865,14 @@
                     value = constrainDegree(value);
                     this._rot = value;
                 }
+
+                get rot() {
+                    return this.rotation;
+                }
+                set rot(value) {
+                    this.rotation = value;
+                }
+
                 get radian() {
                     return degToRad(this._rot);
                 }
@@ -868,6 +913,10 @@
                     return this._yspeed;
                 }
 
+                get velocity() {
+                    return Math.sqrt(this.xspeed*this.xspeed + this.yspeed*this.yspeed);
+                }
+
                 get vector() {
                     let movementAngle = Math.atan2(this.yspeed, this.xspeed);
                     // if ( movementAngle === undefined ) movementAngle = 0;
@@ -906,7 +955,12 @@
                 get age() {
                     return Game.currentTime - this._startTime;
                 }
+
+                get damage() {
+                    return this._damage;
+                }
             }
+
 
 
             /*
@@ -919,7 +973,7 @@
             class Ship extends GameElement {
                 constructor(w, h, x, y, rot) {
                     // console.log("Ship.constructor()")
-                    super(w, h, x, y, rot);
+                    super({width:w, height:h, x:x, y:y, rot:rot});
                     // init
                     this._value = 2;
                     this._lastShotTime = 0;
@@ -936,12 +990,25 @@
                     this._shield = new Shield((this._width + this._height) / 3);
                     this._shield.on = false;
                     this._doubleShots = 0;
-                    this._flamethrowerTime = 0;
+                    this._flamethrowerTime = 0; // in MS
+                    this._flamethrower = new Flame({
+                        x: 0, //_screenWidth * 0.5,
+                        y: 0, //_screenHeight - 50,
+                        rot:-90,
+                        width: this.width*1.5,
+                        height: this.width * 40,
+                        seconds: 1,
+                        colors: ['orange','red','black'],
+                        ctx: fireBufferCtx,
+                        myArray: Game.flames,
+                        parent: this
+                    });
+                    this._damage = 5;
                 }
                 draw() {
                     this.predraw();
                     // Draw Triangle
-                    ctx.strokeStyle = this._strokeColor;
+                    ctx.strokeStyle = this.strokeColor;
                     // ctx.lineWidth = 2;
                     ctx.beginPath();
 
@@ -1011,42 +1078,61 @@
                 }
                 shoot() {
                     /* console.log(`liveshots|maxshots: ${this.liveShots}|${this._maxShots}`); */
-                    let doubleShot = this.doubleShots > 0;
-                    let max = doubleShot ? this._maxShots * 2 : this._maxShots;
-                    if (this.liveShots < max && Game.currentTime > this._lastShotTime + this._shotFrequency) {
-                        let cos = Math.cos(this.radian);
-                        let sin = Math.sin(this.radian);
-                        let nosex = this.shieldsOn
-                            ? this.x + cos * this.width * 0.75
-                            : this.x + cos * this.height * 0.75;
-                        let nosey = this.shieldsOn
-                            ? this.y + sin * this.width * 0.75
-                            : this.y + sin * this.height * 0.75;
-                        let xspeed = this.xspeed + cos * this._shotPower;
-                        let yspeed = this.yspeed + sin * this._shotPower;
-                        if (doubleShot) {
-                            degToRad(this._rot);
-                            radToDeg(this.radian);
-                            let perpendicularAngle = this._rot - 90;
-                            let perpendicularCos = Math.cos(degToRad(perpendicularAngle));
-                            let perpendicularSin = Math.sin(degToRad(perpendicularAngle));
-                            let shot1x = nosex + perpendicularCos * 10;
-                            let shot1y = nosey + perpendicularSin * 10;
-                            let shot2x = nosex - perpendicularCos * 10;
-                            let shot2y = nosey - perpendicularSin * 10;
-                            let shot1 = new Shot(shot1x, shot1y, xspeed, yspeed, this);
-                            let shot2 = new Shot(shot2x, shot2y, xspeed, yspeed, this);
-                            shot1.myArray = shot2.myArray = Game.shots;
-                            this.liveShots += 2;
-                            this.doubleShots -= 1;
-                        } else {
-                            let shot = new Shot(nosex, nosey, xspeed, yspeed, this);
-                            shot.myArray = Game.shots;
-                            this.liveShots++;
+
+
+                    if (this.flamethrowerTime > 0){
+                        // console.log(`flamethrowerTime:: ${this.flamethrowerTime}`);
+
+                        // Position Flamethrower
+                        this.flamethrower.x = this.nosex;
+                        this.flamethrower.y = this.nosey;
+                        this.flamethrower.rot = this.rot;
+
+                        // Fire Flamethrower
+                        this.flamethrowerTime -= Game.msThisFrame;
+                                                
+                        this.flamethrower.emit();
+
+                    } else {
+                        // Fire Shot
+                        let doubleShot = this.doubleShots > 0;
+                        let max = doubleShot ? this._maxShots * 2 : this._maxShots;
+                        if (this.liveShots < max && Game.currentTime > this._lastShotTime + this._shotFrequency) {
+                            let cos = Math.cos(this.radian);
+                            let sin = Math.sin(this.radian);
+                            let nosex = this.shieldsOn
+                                ? this.x + cos * this.width * 0.75
+                                : this.x + cos * this.height * 0.75;
+                            let nosey = this.shieldsOn
+                                ? this.y + sin * this.width * 0.75
+                                : this.y + sin * this.height * 0.75;
+                            let xspeed = this.xspeed + cos * this._shotPower;
+                            let yspeed = this.yspeed + sin * this._shotPower;
+                            if (doubleShot) {
+                                degToRad(this._rot);
+                                radToDeg(this.radian);
+                                let perpendicularAngle = this._rot - 90;
+                                let perpendicularCos = Math.cos(degToRad(perpendicularAngle));
+                                let perpendicularSin = Math.sin(degToRad(perpendicularAngle));
+                                let shot1x = nosex + perpendicularCos * 10;
+                                let shot1y = nosey + perpendicularSin * 10;
+                                let shot2x = nosex - perpendicularCos * 10;
+                                let shot2y = nosey - perpendicularSin * 10;
+                                let shot1 = new Shot(shot1x, shot1y, xspeed, yspeed, this);
+                                let shot2 = new Shot(shot2x, shot2y, xspeed, yspeed, this);
+                                shot1.myArray = shot2.myArray = Game.shots;
+                                this.liveShots += 2;
+                                this.doubleShots -= 1;
+                            } else {
+                                let shot = new Shot(nosex, nosey, xspeed, yspeed, this);
+                                shot.myArray = Game.shots;
+                                this.liveShots++;
+                            }
+                            this._lastShotTime = Game.currentTime;
                         }
-                        this._lastShotTime = Game.currentTime;
                     }
                 }
+
                 thrust(value) {
                     value = value != undefined ? value : 2;
                     this._thrust += value;
@@ -1074,6 +1160,7 @@
                     if (Math.abs(this.xspeed) < 0.1 && Math.abs(this.yspeed) < 0.1) {
                         this.xspeed = this.yspeed = 0;
                     }
+
                 }
                 takeDamage(amount) {
                     // console.log("Ship.takeDamage()");
@@ -1093,6 +1180,25 @@
                     }
                 }
 
+                get nosex() {
+                    let cos = Math.cos(this.radian);
+                    let nosex = this.shieldsOn
+                        ? this.x + cos * this.width * 0.75
+                        : this.x + cos * this.height * 0.75;
+                    return nosex;
+                }
+                get nosey(){
+                    let sin = Math.sin(this.radian);
+                    let nosey = this.shieldsOn
+                        ? this.y + sin * this.width * 0.75
+                        : this.y + sin * this.height * 0.75;
+                    return nosey;
+                }
+
+                get flamethrower() {
+                    return this._flamethrower;
+                }
+                
 
                 set liveShots(value) {
                     if (typeof value == 'number') {
@@ -1130,6 +1236,7 @@
                     }
                 }
 
+
                 get shipWidth() {
                     return this._width;
                 }
@@ -1157,9 +1264,9 @@
                     // this._shotFrequency = 200;
                     this._shotPower = 12;
                     this._value = -1;
-                    this._strokeColor = "orange";
-                    this._fillColor = Game.playerColor = "gold";
-                    this.hp = this._maxHP = 1;
+                    this.strokeColor = "orange";
+                    this.fillColor = "gold";
+                    this.hp = this.maxHP = 1;
                 }
                 draw() {
                     if (this._alive) {
@@ -1190,6 +1297,20 @@
                 get alive() {
                     return this._alive;
                 }
+
+                set flamethrowerTime(value) {
+                    if (typeof value == 'number') {
+                        super.flamethrowerTime = value;
+                        // Display Flamethrower Time Left (where should this live?)
+                        let flameSpan = document.getElementById('player-flamethrower-duration');
+                        let flameText = this.flamethrowerTime > 0 ? `FLAMETHROWER TIME: ${(this.flamethrowerTime/1000).toFixed(2)}` : ``;
+                        flameSpan.innerText = flameText;
+                    }
+                }
+                get flamethrowerTime() {
+                    return this._flamethrowerTime;
+                }
+                
             }
 
             /*
@@ -1208,8 +1329,8 @@
                     this._shotFrequency = 100;
                     this._shotPower = 10;
                     this._value = -1;
-                    this._strokeColor = "#FFFFFF";
-                    this._fillColor = "white";
+                    this.strokeColor = "#FFFFFF";
+                    this.fillColor = "white";
                     this.hp = this._maxHP = 1;
                     this._index = 0;
                     this._myOpponents = Game.opponents;
@@ -1666,6 +1787,7 @@
                     this._positions = [];
                     this._maxPositions = 10;
                     // console.log("Shot constructor(), mass: "+this.mass);
+                    this._damage = 1;
                 }
                 move() {
                     // store position for trail
@@ -1715,6 +1837,301 @@
                     // v what happends if this.myShip is already destroyed?
                     this.myShip.liveShots--;
                     super.kill();
+                }
+            }
+
+            /*-----------------------
+            --------------------------
+                FIRE PARTICLE CLASS
+            --------------------------
+            */
+            class FireParticle extends GameElement {
+                constructor(data) {
+                    super(data);
+            
+                    this._bornTime = Game.currentTime;
+                    this._elapsed = 0;
+                    this._startWidth = this.width;
+                    this._startX = this.x;
+                    this._startY = this.y;
+                    this._colors = data.colors;
+                    this._seconds = data.seconds || 1;
+                    this._spread = data.spread;
+                    this._distance = data.distance;
+
+                    
+                    this._cos = cosDeg(this.rot);
+                    this._sin = sinDeg(this.rot);
+                    let perpRot = this.rot - 90;
+                    this._perpCos = cosDeg(perpRot);
+                    this._perpSin = sinDeg(perpRot);
+
+                    this._ctx = data.ctx || fireBufferCtx;
+
+                    // Forward deceleration
+                    let frames = this._seconds * Game.targetFPS;
+                    let t = frames;
+                    let dist = this._distance;
+                    let vavg = dist / t;
+                    let vf = vavg / 2;; // final velocity
+                    let vi = (2 * vavg) - vf;
+                    let deceleration = (vf- vi)/t;
+                    this._deceleration = deceleration;
+                    // this._startVelocity = data.startVelocity;
+                    this._speed = vi + data.startVelocity;
+
+                    // Lateral deceleration
+                    let latCurl = 1.5; // wavelength
+                    dist = this._spread*0.5 * latCurl;
+                    vavg = dist / t;
+                    vf = 0;
+                    vi = (2 * vavg) - vf;
+                    deceleration = (vf- vi)/t*latCurl;
+                    if ( Math.random() < 0.5 ) {
+                        deceleration *= -1;
+                        vi *= -1;
+                    }
+                    this._lateralSpeed = vi; 
+                    this._lateralDeceleration = deceleration;
+                    this._damage = 0.2;
+                    this._mass = 0.01;
+                }
+                draw() {
+                    // console.log(`FireParticle.draw() :: x(${this.x}, y(${this.y}`);
+                    let ctx = this._ctx;
+                    this.predraw();
+
+                        // console.log(`FlameParticle.draw()`);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.width * 0.5, 0, 2 * Math.PI);
+                    ctx.fillStyle = this.fillColor;
+                    ctx.fill();
+
+                    this.postdraw();
+
+                }
+                move() {
+
+                    this._speed += this._deceleration * Game.frameInterpolation; //*= (0.985 - 0.02 * lateralPct);
+                    this._lateralSpeed += this._lateralDeceleration * Game.frameInterpolation;
+
+                    this.xspeed = this._cos*this._speed + this._perpCos*this._lateralSpeed;
+                    this.yspeed = this._sin*this._speed + this._perpSin*this._lateralSpeed;
+                    super.move();
+                    
+                    // Random Jiggle
+                    // let incr = (this.width*0.5);
+                    // let offset = incr - Math.random()*incr*2;
+                    // this.x+= offset;
+                    // this.y+= offset;
+                    
+                    this._elapsed += Game.msThisFrame;
+                    let secsElapsed = this._elapsed / 1000;
+                    let pct = secsElapsed / this._seconds;
+                    // console.log(`pct: ${pct} = elapsed: ${elapsed} / secs: ${this._seconds}` );
+                    let alphaPct = 1-pct;
+
+                    let color1,color2;
+                    // yellow -> red -> grey
+                    if ( pct < 0.4 ) {
+                        // yellow -> red
+                        pct = pct / 0.4;
+                        color1 = this._colors[0];
+                        color2 = this._colors[1];
+                    } else {
+                        pct = (pct-0.4) / 0.6;
+                        color1 = this._colors[1];
+                        color2 = this._colors[2];
+                    }
+                        // color1 = 'red';
+                        // color2 = 'orange';
+                    this.fillColor = tinycolor.mix(color1, color2, pct*100).setAlpha(alphaPct).toHex8String(); // 
+
+                    if ( secsElapsed >= this._seconds ) {
+                        this.kill();
+                    }
+                }
+                // v can we add these to GameElement class?
+                get speed() {
+                    return this._speed;
+                }
+                get cos() {
+                    return this._cos;
+                }
+                get sin() {
+                    return this._sin;
+                }
+            }
+            /*-----------------------
+            --------------------------
+                FLAME CLASS (particle emitter)
+            --------------------------
+            */
+            class Flame extends GameElement {
+                constructor(data) {
+                    super(data);
+                    this._particles = []; 
+                    this._baseSpread = data.baseSpread || 0.2; // % of width
+
+                    this._ctx = fireBufferCtx; //this._canvas.getContext('2d');
+                    this._colors = data.colors || ['yellow','red','black'];
+                    // on/off
+                    this._emitting = false;
+                    this._parent = data.parent;
+
+                    // For density of particles
+                    let minSize = 5;
+                    let overlap = 0.5; // <- 0-1 particle overlap
+                    let area = this.width * this.height;
+                    let avgSide = Math.sqrt(area);
+                    let perSide = 80;
+
+                    let particleSize = Math.max( minSize, minSize + 5*avgSide / perSide );
+                    let vdensity = Math.min( perSide * ( this.height / this.width ), this.height*2 / particleSize); // <- vertical density
+                    let hdensity = Math.min( perSide * ( this.width / this.height ), this.width*2 / particleSize);
+
+                    this._particleWidth = particleSize;
+                    this._seconds = data.seconds || 8; // <- how long it takes from a particle to travel this.height
+
+                    // Move these calculations to where they will be redone when Flame.width / Flame.height / Flame.seconds etc are changed
+                    let frames = this._seconds * Game.targetFPS;
+                    let t = frames;
+                    let dist = this.height;
+                    let vavg = dist / t; // <- avg velocity
+                    let lifeMS = this._seconds * 1000;
+                    let frequencyMS = (lifeMS / vdensity) / hdensity;
+                    let particlesPerFrame = Game.targetMSPerFrame / frequencyMS;
+                    this._particleFrequencyMS = frequencyMS;
+                    this._particlesPerFrame = Math.ceil( particlesPerFrame );
+                    this._msPerParticle = frequencyMS;
+                    this._msElapsed = Game.msThisFrame;
+                    // console.log(`New Flame :: w/h: ${this.width}, ${this.height}\nvdensity: ${vdensity}\nhdensity: ${hdensity}\nsize: ${particleSize}\nms: ${this._seconds * 1000}\nppf: ${particlesPerFrame}\nfrequency: ${frequencyMS}`);
+                }
+                spawnParticle(num) {
+                    for (let i = 0; i < num; i++ ) {
+                        let littleOff = Math.ceil(this._particleWidth * 0.5);
+                        let baseSpreadOffset = this._baseSpread * this.width * 0.5 - Math.random() * this._baseSpread * this._width; // Math.ceil(this._particleWidth * 0.25);
+                        let x = this.x + Math.cos(this.radian - Math.PI/2) * baseSpreadOffset + littleOff-Math.random()*littleOff*2; // this.x + offset-Math.random()*offset*2;
+                        let y = this.y + Math.sin(this.radian - Math.PI/2) * baseSpreadOffset + littleOff-Math.random()*littleOff*2;
+                        let maxSpread = this.width - this._particleWidth;
+                        let rand = Math.random();
+                        console.log(`startVelocity: ${this._parent.velocity}`);
+                        let dataObj = {
+                            x:x,
+                            y:y,
+                            rot:this.rotation,
+                            seconds: this._seconds,
+                            spread: maxSpread * Math.random() - Math.abs(baseSpreadOffset),
+                            distance: this.height,
+                            startVelocity: this._parent.velocity,
+                            width: this._particleWidth,
+                            height: this._particleWidth,
+                            colors: this._colors,
+                            ctx: this._ctx,
+                            myArray: Game.shots // this._particles //
+                        }
+                        let newParticle = new FireParticle(dataObj);
+                    }
+                }
+                draw() {
+
+                    // console.log(`Flame.draw()`);
+                    // super.predraw();
+
+                    // Draw all my particles
+                    console.log(`#particles:: ${this._particles.length}`);
+                    for ( const particle of this._particles ) {
+                        particle.draw();
+                    }
+                    
+                    // temp draw size rect
+                    /*
+                    let ctx = fireBufferCtx;
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'lightgrey';
+                    let cos = cosDeg( this.rot );
+                    let sin = sinDeg( this.rot );
+                    let hx = cos*this.height;
+                    let hy = sin*this.height;
+                    let perpCos = cosDeg( this.rot + 90 );
+                    let perpSin = sinDeg( this.rot + 90 );
+                    let perpHx = perpCos*this.width*0.5;
+                    let perpHy = perpSin*this.width*0.5;
+
+                    ctx.moveTo(this.x - perpHx, this.y - perpHy);
+                    ctx.lineTo(this.x + perpHx, this.y + perpHy);
+                    ctx.lineTo(this.x + perpHx + hx, this.y + perpHy + hy);
+                    ctx.lineTo(this.x - perpHx + hx, this.y - perpHy + hy);
+                    ctx.lineTo(this.x - perpHx, this.y - perpHy);
+                    ctx.stroke();
+                    */
+
+                    // ctx.font = '13px serif';
+                    // ctx.fillStyle = 'black';
+                    // ctx.fillText(`#: ${this._particles.length}, w: ${this.width}, h: ${this.height}`, this.x+30, this.y+20);
+
+                    // super.postdraw();
+                }
+                move() {
+                    super.move();
+                    
+                    if ( this._emitting ) {
+                        this.emit();
+                    }
+                    // Move all my Particles
+                    for (const particle of this._particles) {
+                        particle.move();
+                    }
+                    
+                    // if ( this._particles.length === 0 ) {
+                    //     this.kill();
+                    // }
+                }
+                emit() {
+                    // spawn particles
+                    this._msElapsed += Game.msThisFrame;
+
+                    if ( this._msElapsed > this._msPerParticle ) {
+                        let num = Math.floor( this._msElapsed / this._msPerParticle );
+                        this._msElapsed -= num * this._msPerParticle;
+                        this.spawnParticle(num);
+                        // console.log(num);
+                    } else {
+                        // console.log(`spawn#: 0`);
+                    }
+                    
+                    // let num = Math.ceil( this.width / (this._particleWidth) / this._seconds );
+                    // console.log(`\n#: ${this._particles.length}\nw: ${this.width}\n\rh: ${this.height}\n\rarea: ${this._area}\n\rseconds: ${this._seconds}\npw: ${this._particleWidth}\n\rnum: ${num}`);
+                    
+                }
+                kill() {
+                    // need to explicitly delete my canvas element? It is not appended to the DOM
+                    // delete this._canvas;
+                    // kill all my particles
+                    for ( const p of this.particles_ar ) {
+                        p.kill();
+                    }
+                    super.kill();
+                }
+
+                set seconds(value) {
+                    if ( typeof value === 'number' ) {
+                        this._seconds = value;
+                    }
+                }
+                get colors() {
+                    return this._colors;
+                }
+                get particles_ar() {
+                    return this._particles;
+                }
+                set shooting(bool) {
+                    if ( typeof bool === 'boolean' ) {
+                        this._emitting = bool;
+                    }
+                }
+                get shooting() {
+                    return this._emitting;
                 }
             }
 
@@ -1889,9 +2306,9 @@
                     this._radius = 26;
                     this.width = this._radius * 2;
                     this._ringColor = '#5555FF';
-                    this._dotColor = "#55FF55";
+                    this._dotColor = type=="flamethrower" ? '#FF3300' : "#55FF55";
                     this._maxAge = 28000; //ms
-                    this._type = type; // SHIELD, DOUBLE_SHOT, WING_MAN
+                    this._type = type; // SHIELD, DOUBLE_SHOT, WING_MAN, FLAME_THROWER
                 }
                 draw() {
                     this.predraw();
@@ -1920,10 +2337,19 @@
                         ctx.lineTo(w, h);
                         ctx.fillStyle = this._dotColor;
                         ctx.fill();
-                    }
+                    } else if (this._type === "flamethrower") {
+                        // draw flame icon
+                        ctx.arc(0, 0, this._radius * 0.4, 0, 2 * Math.PI);
+                        ctx.fillStyle = this._dotColor;
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(0, 0, this._radius * 0.2, 0, 2 * Math.PI);
+                        ctx.fillStyle = '#FFCC00';
+                        ctx.fill();
+                    }   
 
                     // rings
-                    
+                    // console.log("Prize Age :: "+this.age);
                     let pct = (this.age % 1000) / 1000;
                     let pct2 = (pct + 0.5) % 1;
                     ctx.beginPath();
@@ -1964,7 +2390,7 @@
                             break;
                         case "flamethrower":
                             // add 15 seconds of flamethrowerTime
-                            collector.flamethrowerTime += 15;
+                            collector.flamethrowerTime += 15000;
                             break;
                         default:
                     }
@@ -2090,6 +2516,16 @@
             */
             const canvas = document.getElementById('myCanvas');
             const backCanvas = document.getElementById('backCanvas');
+            const ctx = canvas.getContext('2d');
+            const backCtx = backCanvas.getContext('2d');
+
+            // Fire effect comp canvas
+            const fireBufferCanvas = document.createElement('canvas');
+            // fireBufferCanvas.width = _screenWidth;
+            // fireBufferCanvas.height = _screenHeight;
+            const fireBufferCtx = fireBufferCanvas.getContext('2d');
+            fireBufferCtx.globalCompositeOperation = "xor";
+            fireBufferCtx.globalCompositeOperation = "lighter";
 
             function sizeCanvas() {
                 let targetWidth = 1920;
@@ -2097,21 +2533,21 @@
                 let windowDims = getWindowDimensions();
                 let wW = windowDims.width;
                 let wH = windowDims.height;
-                let scale = 0.5 + 0.5 * (targetWidth + targetHeight) / (wW + wH); // = 1
+                let scaleFactor = 0.75; // bigger number makes smaller game elements
+                let scale = scaleFactor + scaleFactor * (targetWidth + targetHeight) / (wW + wH); // = 1
                 // let trueArea = wW * wH;
                 // let targetArea = targetWidth * targetHeight;
                 // let scale = Math.max( 1, targetArea / trueArea );
                 console.log(`w/h: ${wW}/${wH}`);
                 console.log(`scale: ${scale}`);
-                backCanvas.width = canvas.width = wW * scale;
-                backCanvas.height = canvas.height = wH * scale;
-                backCanvas.style.transformOrigin = canvas.style.transformOrigin = "top left";
-                backCanvas.style.transform = canvas.style.transform = `scale(${1 / scale})`;
+                fireBufferCanvas.width = backCanvas.width = canvas.width = wW * scale;
+                fireBufferCanvas.height = backCanvas.height = canvas.height = wH * scale;
+                fireBufferCanvas.style.transformOrigin = backCanvas.style.transformOrigin = canvas.style.transformOrigin = "top left";
+                fireBufferCanvas.style.transform = backCanvas.style.transform = canvas.style.transform = `scale(${1 / scale})`;
                 // window.devicePixelRatio; 
                 backCtx.lineWidth = ctx.lineWidth = 2 * scale;
             }
-            const ctx = canvas.getContext('2d');
-            const backCtx = backCanvas.getContext('2d');
+            
 
             sizeCanvas();
             let x = 200;
@@ -2166,6 +2602,7 @@
             let px = canvas.width * 0.5 - 5;
             let py = canvas.height * 0.5 - 10;
             let playerShip = new PlayerShip(16, 20, px, py, 0);
+            console.log("playerShip.stroke: "+playerShip.strokeColor);
             playerShip.shield.on = false;
 
             playerShip.shield.hp += 1000;
@@ -2202,13 +2639,9 @@
             ============================================
             */
             function constrainDegree(deg) {
-                // console.log(`${deg}-mod-360: ${Math.round(mod( (deg + 180), 360 ) -180)}
-                //            vs${deg}-%-360: ${Math.round( (deg+180)% 360 - 180)}`);
-
-                function mod(a, n) {
-                    return a - Math.floor(a / n) * n; //a % n; //
-                }
-                return mod((deg + 180), 360) - 180; // is (diff+180) % 360
+                deg = deg % 360;
+                deg = deg > 180 ? deg - 360 : deg;
+                return deg;
             }
 
             function radToDeg(rad) {
@@ -2217,6 +2650,14 @@
             function degToRad(deg) {
                 return deg * Math.PI / 180;
             }
+
+            function cosDeg(deg) {
+                return Math.cos(degToRad(deg));
+            }
+            function sinDeg(deg) {
+                return Math.sin(degToRad(deg));
+            }
+
             function addAngles(deg1, deg2) {
                 return constrainDegree(deg1 + deg2);
             }
@@ -2349,6 +2790,7 @@
             Game.setKey("left", 37, () => playerShip.turnLeft());
             Game.setKey("right", 39, () => playerShip.turnRight());
             Game.setKey("thrust", 38, () => playerShip.thrust());
+            Game.setKey("fire", 40, () => playerShip.shoot()); // , () => playerShip.stopShoot()
 
             // WAD
             Game.setKey("thrust", 87, () => playerShip.thrust());
@@ -2356,7 +2798,7 @@
             Game.setKey("right", 68, () => playerShip.turnRight());
 
             // Spacebar
-            Game.setKey("fire", 32, () => playerShip.shoot());
+            Game.setKey("fire", 32, () => playerShip.shoot()); //, () => playerShip.stopShoot()
 
             // ? Game.setKey ( "thrust", 93, () => playerShip.thrust() );
             // ? Game.setKey ( "thrust", 91, () => playerShip.thrust() );

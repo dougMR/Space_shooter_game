@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=0">
+    
+    <title>Flamethrower</title>
+    <script
+    src="js/tinycolor.js"
+    ></script>
+    <style>
+        html,body {
+            -webkit-user-select: none;  /* Chrome all / Safari all */
+            -moz-user-select: none;     /* Firefox all */
+            -ms-user-select: none;      /* IE 10+ */
+            user-select: none;          /* Likely future */  
+        }
+        body {
+            background-color: #555560;
+            padding: 0;
+            margin: 0;
+        }
+        .no-select {
+            -webkit-touch-callout: none; /* iOS Safari */
+                -webkit-user-select: none; /* Safari */
+                -khtml-user-select: none; /* Konqueror HTML */
+                -moz-user-select: none; /* Old versions of Firefox */
+                    -ms-user-select: none; /* Internet Explorer/Edge */
+                        user-select: none; /* Non-prefixed version, currently
+                                            supported by Chrome, Opera and Firefox */
+        }
+        #bg-message {
+            font-family:monospace;
+            font-size: 3vw;
+            line-height: 4vw;
+            color: tan;
+            margin-left: 3em;
+        }
+    </style>
+</head>
+<body class="no-select">
+    <p id="bg-message">
+        Touch Screen + Move Finger <br>-or- <br>Press Spacebar & Arrows
+    </p>
+    <script>
+        /* 
+
+            CLASSES
+
+        */
+
+        /*
+        --------------------------
+            GAME ELEMENT CLASS
+        --------------------------
+        */
+
+        class GameElement {
+            constructor(data) {
+                // console.log(data);
+                this.init(data);
+            }
+            init(data) {
+                this._x = data.x || 0;
+                this._y = data.y || 0;
+                this._yspeed = data.yspeed || 0;
+                this._xspeed = data.xspeed || 0;
+                this._width = data.width || data.diameter || 0;
+                this._height = data.height || data.diameter || 0;
+                this._diameter = data.diameter || (data.width + data.height) * 0.5 || 0;
+                this._mass = data.mass || 1;
+                this._rot = constrainDeg(data.rot) || 0;
+                this._fillColor = data.fillColor || data.color || "#000000";
+                this._strokeColor = data.strokeColor || "#000000";
+                this._strokeWeight = data.strokeWeight || 0;
+                this._ctx = data.ctx || mainContext;
+                this._explodeColors = ["#FF0000","#FFFF00"];
+                this.myArray = data.myArray || _misc_ar;
+            }
+            predraw () {
+                let ctx = this._ctx;
+                // rotate and translate
+                ctx.translate( this.x, this.y );
+                const radian = degToRad( this._rot );
+                ctx.rotate( radian );
+            }
+            draw () {
+                
+                // Draw my shape - gets overridden by child classes
+                
+            }
+            postdraw () {
+                let ctx = this._ctx;
+                // if ( ctx instanceof CanvasRenderingContext2D ) {
+                    ctx.rotate( -degToRad( this._rot ) );
+                    ctx.translate( -this.x, -this.y );
+                // }
+            }
+            move () {
+                // un-rotate and un-translate
+                this.x += this.xspeed * Game.frameInterpolation;
+                this.y += this.yspeed * Game.frameInterpolation;
+            }
+            kill () {
+                // console.log("GameElement.kill()");
+                // remove me from myArray
+                if ( this.myArray ) {
+                    let i = this.myArray.indexOf( this );
+                    this.myArray.splice( i, 1 );
+                }
+                // Kill me
+                delete this;
+            }
+            applyGravity () {
+                this.yspeed += Game.gravity * Game.frameInterpolation;
+            }
+            set x(value) {
+                if ( typeof value == "number" ) {
+                    this._x = value;
+                }    
+            }
+            get x() {
+                return this._x;
+            }
+            set y(value) {
+                if ( typeof value == "number" ) {
+                    this._y = value;
+                }    
+            }
+            get y() {
+                return this._y;
+            }
+            set width(value) {
+                if ( typeof value == "number" ) {
+                    this._width = value;
+                }    
+            }
+            get width() {
+                return this._width;
+            }
+            set height(value) {
+                if ( typeof value == "number" ) {
+                    this._height = value;
+                }
+            }
+            get height() {
+                return this._height;
+            }
+            set diameter(value){
+                if ( typeof value === "number" ) {
+                    this._diameter = value;
+                }
+            }
+            get diameter() {
+                return this._diameter;
+            }
+            set radius(value) {
+                this.diameter = value * 2;
+            }
+            // get radius() {
+            //     return (this._height + this._width) * 0.25;
+            // }
+            get radius() {
+                return this._diameter * 0.5;
+            }
+
+            get mass() {
+                return this._mass;
+            }
+            
+            set rot(value) {
+                if ( typeof value === "number" ) {
+                    this._rot = constrainDeg(value);
+                }
+            }
+            get rot() {
+                return this._rot;
+            }
+            get rad() {
+                return degToRad(this._rot);
+            }
+            set fillColor(value) {
+                if ( isHexColor(value) ) {
+                    this._fillColor = value;
+                }
+            }
+            get fillColor() {
+                return this._fillColor;
+            }
+            set strokeColor(value) {
+                if ( isHexColor(value) ) {
+                    this._strokeColor = value;
+                }
+            }
+            get strokeColor() {
+                return this._strokeColor;
+            }
+            set strokeWeight(value) {
+                if ( typeof value === "number" ) {
+                    this._strokeWeight = value;
+                }
+            }
+            get strokeWeight() {
+                return this._strokeWeight;
+            }
+            set myArray ( value ) {
+                if ( Array.isArray( value) ) {
+                    this._myArray = value;
+                    this._myArray.push( this );
+                }
+            }
+            get myArray () {
+                return this._myArray;
+            }
+            set xspeed ( value ) {
+                if ( typeof value == 'number' ) {
+                    this._xspeed = value;
+                }
+            }
+            get xspeed () {
+                return this._xspeed;
+            }
+            set yspeed ( value ) {
+                if ( typeof value == 'number' ) {
+                    this._yspeed = value;
+                }
+            }
+            get yspeed () {
+                return this._yspeed;
+            }
+
+            get explodeColors() {
+                return this._explodeColors;
+            }
+        }
+
+        /*-----------------------
+        --------------------------
+            FIRE PARTICLE CLASS
+        --------------------------
+        */
+        class FireParticle extends GameElement {
+            constructor(data) {
+                super(data);
+                // this._ticks = 0;
+                this._bornTime = _lastTimestamp;
+                this._elapsed = 0;
+                this._startWidth = this.width;
+                this._startX = this.x;
+                this._startY = this.y;
+                this._colors = data.colors;
+                this._seconds = data.seconds || 1;
+                this._spread = data.spread;
+                this._distance = data.distance;
+
+                this._cos = cosDeg(this.rot);
+                this._sin = sinDeg(this.rot);
+                let perpRot = this.rot - 90;
+                this._perpCos = cosDeg(perpRot);
+                this._perpSin = sinDeg(perpRot);
+
+                // Forward deceleration
+                let frames = this._seconds * _fpsTarget;
+                let t = frames;
+                let dist = this._distance;
+                let vavg = dist / t;
+                let vf = vavg / 2;; // final velocity
+                let vi = (2 * vavg) - vf;
+                let deceleration = (vf- vi)/t;
+                this._deceleration = deceleration;
+                this._speed = vi;
+
+                // this._maxTicks = frames*0.7 + frames*0.3*Math.random();
+                // console.log(`fps: ${_fpsActual}\n\rseconds: ${this._seconds}\n\rframes: ${frames}\n\rd: ${dist}\n\rvavg: ${vavg}\n\rvi: ${vi}\n\rmax ticks: ${this._maxTicks}`);
+
+                // Lateral deceleration
+                let latCurl = 1.5; // wavelength
+                dist = this._spread*0.5 * latCurl;
+                vavg = dist / t;
+                vf = 0;
+                vi = (2 * vavg) - vf;
+                deceleration = (vf- vi)/t*latCurl;
+                if ( Math.random() < 0.5 ) {
+                    deceleration *= -1;
+                    vi *= -1;
+                }
+                this._lateralSpeed = vi; 
+                this._lateralDeceleration = deceleration;
+            }
+            draw() {
+                
+                this.predraw();
+
+                let ctx = this._ctx;
+                // if ( ctx instanceof CanvasRenderingContext2D ) {
+                    // console.log(`FlameParticle.draw()`);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.width * 0.5, 0, 2 * Math.PI);
+
+                    ctx.fillStyle = this.fillColor;
+
+                    // let tc = tinycolor(this.fillColor);
+                    // let innerColor = this.fillColor;
+                    // let outerColor = tc.setAlpha(0).toHex8String();
+                    // let hw = this.width*0.5;
+                    // // create radial gradient
+                    // let grd = ctx.createRadialGradient(0, 0, hw*0.5, 0, 0, hw);
+                    // grd.addColorStop(0, innerColor);
+                    // grd.addColorStop(1, outerColor);
+                    // ctx.fillStyle = grd;
+
+                    ctx.fill();
+
+                    
+                // }
+
+                this.postdraw();
+            }
+            move() {
+
+                // let lateralDist = pointToLineDist(this.x, this.y, this._startX, this._startY, this.rot );
+                // let lateralPct = lateralDist / (this._spread*0.5);
+                // lateralPct = 1-lateralPct;
+
+                // if ( lateralPct >= 1 ) {
+                //     // reverse
+                //     this._lateralSpeed *=-1;
+                // }
+                this._speed += this._deceleration * Game.frameInterpolation; //*= (0.985 - 0.02 * lateralPct);
+                // this._lateralSpeed *= 0.95;
+                this._lateralSpeed += this._lateralDeceleration * Game.frameInterpolation;
+
+                this.xspeed = this._cos*this._speed + this._perpCos*this._lateralSpeed;
+                this.yspeed = this._sin*this._speed + this._perpSin*this._lateralSpeed;
+                super.move();
+                
+                // Random Jiggle
+                // let incr = (this.width*0.5);
+                // let offset = incr - Math.random()*incr*2;
+                // this.x+= offset;
+                // this.y+= offset;
+                
+                this._elapsed += Game.msThisFrame;
+                let secsElapsed = this._elapsed / 1000;
+                // ( performance.now() - this._bornTime ) / 1000;
+                let pct = secsElapsed / this._seconds;
+                // pct = Math.max( 0, Math.min( 1, pct ));
+                // console.log(`pct: ${pct} = elapsed: ${elapsed} / secs: ${this._seconds}` );
+                let alphaPct = 1-pct;
+                // alphaPct *= (1-lateralPct);
+                // let alphaPct = lateralPct;
+                // if ( alphaPct > 1 ) {
+                //     console.log(`alphaPct: ${alphaPct}`);
+                // }
+                // this.width = this.height = this._startWidth - this._startWidth * 0.5 * pct; 
+
+
+                let color1,color2;
+                // yellow -> red -> grey
+                if ( pct < 0.4 ) {
+                    // yellow -> red
+                    pct = pct / 0.4;
+                    color1 = this._colors[0];
+                    color2 = this._colors[1];
+                } else {
+                    pct = (pct-0.4) / 0.6;
+                    color1 = this._colors[1];
+                    color2 = this._colors[2];
+                }
+                    // color1 = 'red';
+                    // color2 = 'orange';
+                this.fillColor = tinycolor.mix(color1, color2, pct*100).setAlpha(alphaPct).toHex8String(); // 
+
+                // this._ticks++;
+                if ( secsElapsed >= this._seconds ) {
+                    this.kill();
+                }
+            }
+            // v can we add these to GameElement class?
+            get speed() {
+                return this._speed;
+            }
+            get cos() {
+                return this._cos;
+            }
+            get sin() {
+                return this._sin;
+            }
+        }
+        /*-----------------------
+        --------------------------
+            FLAME CLASS (particle emitter)
+        --------------------------
+        */
+        class Flame extends GameElement {
+            constructor(data) {
+                super(data);
+                this._particles = [];
+                this._baseSpread = data.baseSpread || 0.2; // % of width
+                // this.fillColor = '#FF0000FF';
+                // this._canvas = document.createElement('canvas');
+                // this._ctx = this._canvas.getContext('2d');
+                this._colors = data.colors || ['yellow','red','black'];
+                // on/off
+                this._emitting = false;
+
+                // For density of particles
+                let minSize = 10;
+                let overlap = 0.85; // <- 0-1 particle overlap
+                let area = this.width * this.height;
+                let avgSide = Math.sqrt(area);
+                let perSide = 50;
+
+                let particleSize = Math.max( minSize, minSize + 2*avgSide / perSide );
+                let vdensity = Math.min( perSide * ( this.height / this.width ), this.height*2 / particleSize); // <- vertical density
+                let hdensity = Math.min( perSide * ( this.width / this.height ), this.width*2 / particleSize);
+
+                this._particleWidth = particleSize;
+                this._seconds = data.seconds || 1; // <- how long it takes from a particle to travel this.height
+                // this._area = area;
+
+                // Move these calculations to where they will be redone when Flame.width / Flame.height / Flame.seconds etc are changed
+                let frames = this._seconds * _fpsTarget;
+                let t = frames;
+                let dist = this.height;
+                let vavg = dist / t; // <- avg velocity
+                let lifeMS = this._seconds * 1000;
+                let frequencyMS = (lifeMS / vdensity) / hdensity;
+                let particlesPerFrame = _msPerFrameTarget / frequencyMS;
+                this._particleFrequencyMS = frequencyMS;
+                this._particlesPerFrame = Math.ceil( particlesPerFrame );
+                this._msPerParticle = frequencyMS;
+                this._msElapsed = Game.msThisFrame;
+                console.log(`w/h: ${this.width}, ${this.height}\nvdensity: ${vdensity}\nhdensity: ${hdensity}\nsize: ${particleSize}\nms: ${this._seconds * 1000}\nppf: ${particlesPerFrame}\nfrequency: ${frequencyMS}`);
+            }
+            spawnParticle(num) {
+
+                for (let i = 0; i < num; i++ ) {
+                    let littleOff = Math.ceil(this._particleWidth * 0.25);
+                    let baseSpreadOffset = this._baseSpread * this.width * 0.5 - Math.random() * this._baseSpread * this._width; // Math.ceil(this._particleWidth * 0.25);
+                    let x = this.x + Math.cos(this.rad - Math.PI/2) * baseSpreadOffset + littleOff-Math.random()*littleOff*2; // this.x + offset-Math.random()*offset*2;
+                    let y = this.y + Math.sin(this.rad - Math.PI/2) * baseSpreadOffset + littleOff-Math.random()*littleOff*2;
+                    
+                    let maxSpread = this.width - this._particleWidth;
+                    let rand = Math.random();
+                    let dataObj = {
+                        x:x,
+                        y:y,
+                        rot:this.rot,
+                        seconds: this._seconds,
+                        spread: maxSpread * Math.random() - Math.abs(baseSpreadOffset),
+                        distance: this.height,
+                        width: this._particleWidth,
+                        height: this._particleWidth,
+                        colors: this._colors,
+                        ctx: this._ctx,
+                        myArray: this._particles
+                    }
+                    let newParticle = new FireParticle(dataObj);
+                }
+            }
+            draw() {
+
+                // super.predraw();
+
+                for ( const particle of this._particles ) {
+                    particle.draw();
+                }
+                
+                // temp draw size rect
+                // let ctx = fireContext;
+                // ctx.beginPath();
+                // ctx.strokeStyle = 'lightgrey';
+                // let cos = cosDeg( this.rot );
+                // let sin = sinDeg( this.rot );
+                // let hx = cos*this.height;
+                // let hy = sin*this.height;
+                // let perpCos = cosDeg( this.rot + 90 );
+                // let perpSin = sinDeg( this.rot + 90 );
+                // let perpHx = perpCos*this.width*0.5;
+                // let perpHy = perpSin*this.width*0.5;
+
+                // ctx.moveTo(this.x - perpHx, this.y - perpHy);
+                // ctx.lineTo(this.x + perpHx, this.y + perpHy);
+                // ctx.lineTo(this.x + perpHx + hx, this.y + perpHy + hy);
+                // ctx.lineTo(this.x - perpHx + hx, this.y - perpHy + hy);
+                // ctx.lineTo(this.x - perpHx, this.y - perpHy);
+                // ctx.stroke();
+
+                // ctx.font = '13px serif';
+                // ctx.fillStyle = 'black';
+                // ctx.fillText(`#: ${this._particles.length}, w: ${this.width}, h: ${this.height}`, this.x+30, this.y+20);
+
+                // super.postdraw();
+            }
+            move() {
+                super.move();
+                
+                if ( this._emitting ) {
+                    this.emit();
+                }
+                for (const particle of this._particles) {
+                    particle.move();
+                }
+                
+                // if ( this._particles.length === 0 ) {
+                //     this.kill();
+                // }
+            }
+            emit() {
+                // spawn particles
+                this._msElapsed += Game.msThisFrame;
+
+                if ( this._msElapsed > this._msPerParticle ) {
+                    let num = Math.floor( this._msElapsed / this._msPerParticle );
+                    this._msElapsed -= num * this._msPerParticle;
+                    this.spawnParticle(num);
+                    // console.log(num);
+                } else {
+                    // console.log(`spawn#: 0`);
+                }
+                
+                // let num = Math.ceil( this.width / (this._particleWidth) / this._seconds );
+                // console.log(`\n#: ${this._particles.length}\nw: ${this.width}\n\rh: ${this.height}\n\rarea: ${this._area}\n\rseconds: ${this._seconds}\npw: ${this._particleWidth}\n\rnum: ${num}`);
+                
+            }
+            kill() {
+                // need to explicitly delete my canvas element? It is not appended to the DOM
+                // delete this._canvas;
+                // kill all my particles
+                for ( const p of this.particles_ar ) {
+                    p.kill();
+                }
+                super.kill();
+            }
+            // set rot(value) {
+            //     super.rot = value;
+            //     if ( typeof value === "number" ) {
+            //         for ( const p of this._particles ) {
+            //             p.rot = this._rot;
+            //         }
+            //     }
+            // }
+            // get rot() {
+            //     return this._rot;
+            // }
+            set seconds(value) {
+                if ( typeof value === 'number' ) {
+                    this._seconds = value;
+                }
+            }
+            get colors() {
+                return this._colors;
+            }
+            get particles_ar() {
+                return this._particles;
+            }
+            set shooting(bool) {
+                if ( typeof bool === 'boolean' ) {
+                    this._emitting = bool;
+                }
+            }
+            get shooting() {
+                return this._emitting;
+            }
+        }
+
+        /*-------------------------------------------------
+        --------------------------
+            TARGET CLASS
+        --------------------------
+        */
+        class Target extends GameElement {
+            constructor(data) {
+                super(data);
+                this._hp = this._startHP = 1000;
+                this.fillColor = this._innerColor = '#00FF00';
+                this._startDiameter = this.diameter;
+                this._finalDiameter = this.diameter * 1.5;
+                this._outerColor = '#222200';
+                this._innerColorRadius = 0.15; 
+                this._flame = new Flame({
+                    x:this.x,
+                    y:this.y,
+                    rot:-90,
+                    width: this.width * 1.5,
+                    height: this.height * 0.5,
+                    seconds: 1,
+                    colors: ['red','#550000','black'],
+                    ctx: fireContext
+                });
+                this._flamePct = 0;
+            }
+            draw() {
+                this.predraw();
+
+                let ctx = this._ctx;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, 2 * Math.PI);
+                ctx.fillStyle = this.fillColor;
+                ctx.fill();
+                // create radial gradient
+                let grd = ctx.createRadialGradient(0, 0, this._innerColorRadius, 0, 0, this.radius);
+                grd.addColorStop(0, this._innerColor);
+                grd.addColorStop(1, this._outerColor);
+
+                ctx.fillStyle = grd;
+                ctx.fill();
+
+                this.flame.draw();
+
+                this.postdraw();
+            }
+            takeDamage(dmg) {
+                // console.log(`Target.takeDamage()`);
+                if(typeof dmg !== "number") dmg = 1;
+                if( this._hp <= 0 ) return;
+                this._hp -= dmg;
+                if( this._hp <= 0 ) {
+                    console.log(`Target.destroy()`);
+                    this.destroy();
+                } else {
+                    let pct = (this._startHP - this._hp) / this._startHP; // <- pct of HP lost
+                    this._outerColor = tinycolor.mix('#111100', '#330000', Math.round(pct*100)).toHexString();
+                    this._innerColor = tinycolor.mix('#00FF00', 'brown', Math.round(pct*100)).toHexString();
+                    this.diameter = this._startDiameter + (this._finalDiameter - this._startDiameter) * pct;
+                    this.setFlame(0.002);
+                }
+            }
+            move() {
+                super.move();
+                if (this._hp < this._startHP) {
+                    if ( this._flamePct > 0 ) this.flame.emit();
+                    this.flame.move();
+                }
+                // lessen flame
+                this.setFlame(-0.005);
+                // rotate flame towards bottom of target
+                this.flame.rot += degDiff( -90, this.flame.rot ) * 0.02;
+                this.positionFlame();
+                this.applyGravity();
+            }
+            setFlame( value ) {
+                // "strength" of flame from 0 to 1
+                if ( typeof value === 'number' ) {
+                    this._flamePct += value;
+                    this._flamePct = Math.max(0, Math.min(1, this._flamePct));
+
+                    let pct = this._flamePct;
+                    this._innerColorRadius = this.width*0.4*pct;
+                    this.flame.seconds = 1 * ( 0.5 + 1.5 * pct ); 
+                    this.flame.height = this.height * ( 0.5 + 0.5 * pct );
+                    this.flame.width = this.width + this.width * pct;
+                    this.flame.colors[0] = tinycolor.mix('#FF0000', '#FFFF00', Math.round(pct*100)).toHexString();
+                }
+            }
+            destroy() {
+                // explode
+                Game.explode( this );
+                this.flame.kill();
+                this.kill();
+            }
+            positionFlame() {
+               let radius = this.diameter * 0.5;
+               let inverseRad = this.flame.rad + Math.PI;
+               
+               this.flame.x = this.x + Math.cos(inverseRad) * radius;
+               this.flame.y = this.y + Math.sin(inverseRad) * radius;
+            }
+            set x(value) {
+                super.x = value;
+                this.positionFlame();
+            }
+            get x() {
+                return super.x;
+            }
+            set y(value) {
+                super.y = value;
+                this.positionFlame();
+            }
+            get y() {
+                return super.y;
+            }
+
+            get flame() {
+                return this._flame;
+            }
+            set flamerot( deg ) {
+                if( typeof deg === 'number' ) {
+                    this.flame.rot = deg;
+                    this.positionFlame();
+                }
+            }
+        }
+
+        /*
+        ============================================
+
+                    DEBRIS CLASS
+
+        ============================================
+        */
+        class Debris extends GameElement {
+            constructor (data) {
+                super(data);
+                this._startTime = _lastTimestamp;
+                this._lifespan = data.lifespan || 1000;
+                this._decelerate = false;
+                // this._startColor = data.startColor || yellow;
+                // this._endColor = data.endColor || red;
+            }
+            move () {
+                super.move();
+                // Game.keepInBounds(this);
+                if ( this.decelerate ) {
+                    // this.xspeed *= 0.97;
+                    this.xspeed -= this.xspeed * 0.03 * Game.frameInterpolation;
+                    // this.yspeed *= 0.97;
+                    this.yspeed -= this.yspeed * 0.03 * Game.frameInterpolation;
+                }
+                if ( _lastTimestamp >= this._startTime + this._lifespan ) {
+                    this.kill();
+                }
+            }
+            draw () {
+                // Draw a circle
+                let ctx = this._ctx;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.width * 0.5, 0, 2 * Math.PI);
+                ctx.fillStyle = this._fillColor;
+                ctx.fill();
+            }
+            get decelerate () {
+                return this._decelerate;
+            }
+            set decelerate ( booleanValue ) {
+                this._decelerate = !!booleanValue;
+            }
+
+        }
+
+
+
+        //      ^ CLASSES ^     =============================================================
+
+        /*
+        =============================================
+                v POINT OF ENTRY / INIT v
+
+        */
+
+        let _screenWidth = (window.innerWidth > 0) ? window.innerWidth : screen.width; // document.documentElement.clientWidth; // 
+        let _screenHeight = (window.innerHeight > 0) ? window.innerHeight : screen.height; // document.documentElement.innerHeight; //
+
+        // Game canvas
+        let mainCanvas = document.createElement('canvas');
+        mainCanvas.width = _screenWidth;
+        mainCanvas.height = _screenHeight;
+        mainCanvas.style.position = 'absolute';
+        mainCanvas.style.top = '0';
+        mainCanvas.style.boxSizing = 'border-box';
+        // mainCanvas.style.border = '1px solid grey';
+        mainCanvas.classList.add('no-select');
+        document.body.appendChild(mainCanvas);
+        let mainContext = mainCanvas.getContext('2d');
+
+        // Fire effect comp canvas
+        let fireBufferCanvas = document.createElement('canvas');
+        fireBufferCanvas.width = _screenWidth;
+        fireBufferCanvas.height = _screenHeight;
+        let fireContext = fireBufferCanvas.getContext('2d');
+        fireContext.globalCompositeOperation = "xor";
+        fireContext.globalCompositeOperation = "lighter";
+        
+        // Global vars (move them into Game object) as private and public
+        let frames = 0;
+        let _paused = true;
+        let _lastTimestamp = 0;
+        let _fpsTarget = 30;
+        let _fpsActual = 30;
+        let _msPerFrameTarget = 1000/_fpsTarget; // <- MS per frame
+        let frameLength = _msPerFrameTarget;
+        let frameLength_ar = [];
+        let flames_ar = [];
+        let targets_ar = [];
+        let debris_ar = [];
+        let _misc_ar = []; // <- for gameObjects that don't live anywhere else
+
+        let Game = new (function(){
+            // private vars
+            let _privateGameVar = "privateGameVar";
+            gameobj = {
+                msThisFrame: 16,
+                frameInterpolation: 1,
+                gravity: 0.1,
+                start: function(){
+                    console.log( "Game.start()" );
+                    console.log(` _privateGameVar: ${_privateGameVar}`);
+                    _paused = false;
+                    let pausedDuration = performance.now() - _lastTimestamp;
+                    _lastTimestamp += pausedDuration - _msPerFrameTarget;
+                    console.log("pausedDuration", pausedDuration);
+                    window.requestAnimationFrame(Game.run);
+                }
+            }
+            return gameobj;
+        })();
+        let GameProto = Object.getPrototypeOf(Game);
+        GameProto.stop = function() {
+            console.log("Game.stop()");
+            // console.log(` _privateGameVar: ${_privateGameVar}`);
+
+            _paused = true;
+        }
+        Game.playSingleFrame = function(){
+                Game.start();
+                Game.stop();
+                //Game.run(); // <- this moves everything up into corner.  Why?
+                // window.requestAnimationFrame(Game.run);
+        }
+        Game.pause = function() {
+            if ( _paused ) {
+                // Unpause 
+                Game.start();
+            } else { 
+                // Pause
+                Game.stop();
+            }
+        }
+        Game.explode = function(el) {
+            let startColor = '#FFFF00'; // el.explodeColors[0];
+            let endColor = '#FF0000'; // el.explodeColors[1];
+            let midColor = tinycolor.mix(startColor, endColor, 50).toHex8String();
+            let x = el.x;
+            let y = el.y;
+            
+            let baseDiameter = Math.max(20, Math.min(40, el.diameter * 0.5));
+            let debrisNum = Math.floor(baseDiameter) * 4;
+            let maxSpeed = baseDiameter * 0.4;
+            el.yspeed = -5;
+            for ( let i = 0; i < debrisNum; i++ ) {
+                let speed = Math.random() * maxSpeed;
+                let speedPct = speed / maxSpeed;
+                let rad = Math.random() * Math.PI * 2;
+                let xspeed = Math.cos(rad) * speed + el.xspeed * speedPct;
+                let yspeed = Math.sin(rad) * speed + el.yspeed * speedPct;
+                let diameter = baseDiameter * 0.6 - speedPct * baseDiameter * 0.5;
+                let lifespan = 1000 + 500* speedPct;
+                let color = endColor;
+                if ( speed < maxSpeed * 0.1 ) {
+                    color = startColor;
+                } else if ( speed < maxSpeed * 0.35 ) {
+                    color = midColor;
+                }
+                let alphaPct = 0.5 + 0.5 * speedPct; //Math.min( 1, 0.6 + 0.8 * speedPct );
+                color = tinycolor.mix(startColor, endColor, speedPct * 100).setAlpha(alphaPct).toHex8String();
+                let debris = new Debris({x:x,y:y,xspeed:xspeed,yspeed:yspeed,width:diameter,height:diameter,lifespan:lifespan, color:color, myArray:debris_ar});
+                debris.decelerate = true;
+            }
+        }
+        Game.ricochet = function(el) {
+            // specifically designed for fireParticles
+            
+            let bounceRad = Math.random() * 2 * Math.PI;
+            let bounceXspeed = el.speed * Math.cos(bounceRad);
+            let bounceYspeed = el.speed * Math.sin(bounceRad);
+            let rnd = Math.random();
+            let damper = 0.3 + rnd*0.5;
+            let xspeed = (el.xspeed + bounceXspeed) * damper;
+            let yspeed = (el.yspeed + bounceYspeed) * damper;
+
+            let diameter = ( el.width + el.height ) * 0.5; // el.width * 0.6 - (speed/maxSpeed) * element.width * 0.5;
+            diameter = diameter * 0.25 + diameter * 0.5 * rnd;
+            let lifespan = 100 + 500*rnd;
+            
+            let colormix = rnd.toFixed(2) * 100;
+            let alphaPct = 0.75 + 0.25 * (1-rnd);
+            let color = tinycolor.mix(el.explodeColors[0], el.explodeColors[1], colormix).setAlpha(alphaPct).toHex8String();
+
+            let debris = new Debris({x:el.x,y:el.y,xspeed:xspeed,yspeed:yspeed,width:diameter,height:diameter,lifespan:lifespan, color:color, myArray:debris_ar});
+            debris.decelerate = true;
+        }
+        Game.checkAgainstWalls = function(el) {
+            // if el hits wall, bounce it
+            let mirrorX = -1;
+            if ( el.x + el.radius >= _screenWidth ) {
+                mirrorX = _screenWidth - el.radius;
+            } else if ( el.x - el.radius <= 0 ) {
+                mirrorX = 0 + el.radius;
+            }
+            if ( mirrorX !== -1 ) {
+                // Bounce off wall
+                let xMove = Math.abs(el.xspeed);
+                let overlap = Math.abs(el.x - mirrorX);
+                let overlapPct = (overlap / xMove) * Game.frameInterpolation;
+                el.x -= el.xspeed * overlapPct;
+                el.xspeed *= -0.9;
+                el.x += el.xspeed * overlapPct;
+            }
+        }
+        Game.checkHitCeiling = function(el) {
+            let bottomY = el.y + el.radius;
+            if( bottomY < 0 && bottomY - el.yspeed > 0 ) {
+                // slow it down, so it will come back onscreen sooner
+                el.yspeed *= 0.2;
+            }
+        }
+        Game.checkPastFloor = function(el) {
+            return el.y - el.radius > _screenHeight;
+        }
+        
+        // let flameData1 = {
+        //     rot: 0,
+        //     x: 20,
+        //     y: 20,
+        //     width: 20,
+        //     height: 300,
+        //     seconds: 0.75,
+        //     colors: ['orange','red','black'],
+        //     ctx: fireContext,
+        //     myArray: flames_ar
+        // };
+        // let flame1 = new Flame( flameData1 );
+        let _gun = new Flame({
+            x:_screenWidth * 0.5,
+            y:_screenHeight - 50,
+            rot:-90,
+            width: Math.max(40, _screenHeight * 0.06),
+            height: _screenHeight * 0.6,
+            seconds: 1,
+            colors: ['orange','red','black'],
+            ctx: fireContext,
+            myArray: flames_ar
+        });
+        // let flame5 = new Flame( {
+        //     x: 675,
+        //     y: 470,
+        //     rot: -90,
+        //     width: 150,
+        //     height: 250,
+        //     seconds: 3,
+        //     colors: ['orange','red','black'],
+        //     ctx: fireContext,
+        //     myArray: flames_ar
+        // });
+        // let flame2 = new Flame( {
+        //     x: 350,
+        //     y: 470,
+        //     rot: -90,
+        //     width: 60,
+        //     height: 250,
+        //     colors: ['yellow','red','black'],
+        //     ctx: fireContext,
+        //     myArray: flames_ar
+        // });
+        // let flame3 = new Flame( {
+        //     x: 450,
+        //     y: 450,
+        //     rot: 270,
+        //     width: 30,
+        //     height: 300,
+        //     seconds: 3,
+        //     colors: ['yellow','orange','red'],
+        //     ctx: fireContext,
+        //     myArray: flames_ar
+        // });
+        // let flame4 = new Flame( {
+        //     x: 550,
+        //     y: 430,
+        //     rot: -90,
+        //     width: 100,
+        //     height: 40,
+        //     colors: ['teal','lime','lime'],
+        //     ctx: fireContext,
+        //     myArray: flames_ar
+        // });
+        
+        for ( let i = 0; i < 10; i++ ) {
+            new Flame( {
+                x:175,
+                y:175,
+                rot: i*36,
+                width:30,
+                height:100 + 100*(i%5)/5,
+                seconds: 0.5+ 2*(i % 5)/5,
+                colors:['green','burgundy','steelblue'],
+                ctx:fireContext,
+                myArray:flames_ar
+            });
+        }
+
+        let target1 = new Target( {
+            x: _screenWidth * 0.7,
+            y: _screenHeight * 0.1,
+            width: 100,
+            height: 100,
+            // fillColor: '#00FF00',
+            myArray: targets_ar
+        });
+        let target2 = new Target( {
+            x: _screenWidth * 0.2,
+            y: _screenHeight * -0.1,
+            width: 100,
+            height: 100,
+            // fillColor: '#00FF00',
+            myArray: targets_ar
+        });
+        let target3 = new Target( {
+            x: _screenWidth * 0.8,
+            y: _screenHeight * 0.5,
+            diameter: 100,
+            // fillColor: '#00FF00',
+            myArray: targets_ar
+        });
+        let target4 = new Target( {
+            x: _screenWidth * 0.4,
+            y: _screenHeight * 0.4,
+            width: 50,
+            height: 50,
+            // fillColor: '#00FF00',
+            myArray: targets_ar
+        });
+        let target5 = new Target( {
+            x: _screenWidth * 0.8,
+            y: _screenHeight * 0.9,
+            width: 100,
+            height: 100,
+            // fillColor: '#00FF00',
+            myArray: targets_ar
+        });
+        let target6 = new Target( {
+            x: _screenWidth * 0.8,
+            y: _screenHeight * -0.3,
+            width: 100,
+            height: 100,
+            // fillColor: '#00FF00',
+            myArray: targets_ar
+        });
+        let target7 = new Target( {
+            x: _screenWidth * 0.2,
+            y: _screenHeight * 0.5,
+            diameter: 50,
+            // fillColor: '#00FF00',
+            myArray: targets_ar
+        });
+        
+        function drawIcon() {
+            // Flame icon:
+            // let hw = _screenWidth * 0.5;
+            // let hh = _screenWidth * 0.5;
+            let hw = _screenWidth * 0.5;
+            let hh = _screenHeight * 0.35;
+            mainContext.beginPath();
+            // x = 150, y = 100
+            // mainContext.moveTo(150, 100);
+            mainContext.moveTo(hw, hh);
+            mainContext.quadraticCurveTo(hw+100, hh, hw+100, hh+100);
+            mainContext.quadraticCurveTo(hw+100, hh+200, hw,hh+200);
+            mainContext.quadraticCurveTo(hw-75, hh+200, hw-75,hh+120);
+            mainContext.quadraticCurveTo(hw-75, hh+80, hw,hh+70);
+            mainContext.quadraticCurveTo(hw+25, hh+70, hw+25,hh+35);
+            mainContext.quadraticCurveTo(hw+25, hh, hw,hh);
+            mainContext.fillStyle  = "#444450";
+            mainContext.fill();
+        }
+        /*
+
+                v GAME LOOP v
+
+        */
+        
+        Game.run = function(timestamp) {
+            
+            // Timing
+            Game.msThisFrame = frameLength = timestamp - _lastTimestamp;
+            _lastTimestamp = timestamp;
+            frameLength_ar.push(Game.msThisFrame);
+            Game.frameInterpolation = frameLength / _msPerFrameTarget;
+            
+            if ( frameLength_ar.length >= 100 ) {
+                let avgMS = (arr => arr.reduce((a,b) => a + b, 0) / arr.length)(frameLength_ar);
+                _fpsActual = 1000 / avgMS;
+                frameLength_ar.length = 0;
+            }
+
+            // clear previous frame
+            mainContext.clearRect(0,0,_screenWidth,_screenHeight);
+            fireContext.clearRect(0,0,_screenWidth,_screenHeight);
+
+            drawIcon();
+            // check keys
+            Game.checkKeys();
+
+            // draw flames
+            let numParticles = 0;
+            for ( let fl of flames_ar ) {  
+                fl.move();
+                fl.draw();
+                numParticles += fl.particles_ar.length;
+            }
+            for ( let t of targets_ar ) {
+                numParticles += t.flame.particles_ar.length;
+                Game.checkAgainstWalls(t);
+                if ( Game.checkPastFloor(t) ) {
+                    t.y = -t.radius;
+                    t.yspeed = 0;
+                } else {
+                    Game.checkHitCeiling(t);
+                }
+            }
+            for ( let d of debris_ar ) {
+                d.move();
+                d.draw();
+            }
+            // check Collisions between gun flame particles and targets
+            let hits = checkCollision(_gun.particles_ar,targets_ar);
+            for ( let el of hits.targets ) {
+                // rotate target's flame to angle of impact from colliding particle
+                // el.flame.rot = 
+                el.takeDamage();
+            }
+            for ( let i = hits.hitters.length -1; i>=0; i-- ) {
+                let el = hits.hitters[i];
+                if ( i%4 === 0 ) Game.ricochet(el);
+                el.kill();
+                
+            }
+            // draw Targets
+            for ( t of targets_ar ) {
+                t.move();
+                t.draw();
+            }
+            // check collisions between Targets and Targets
+            let collided = false;
+            for ( let A of targets_ar ) {
+                for ( let B of targets_ar ) {
+                    if ( A != B ) {
+                        let hitTime = circleSweepTest ( A, B );
+                        if ( hitTime >=0 && hitTime <= 1 ) {
+                            // Transfer Momentum
+                            // Transfer momentum, move after touching
+                            var transferResults = transferMomentum( A, B );
+                            A.xspeed = ( transferResults.a.x ); 
+                            A.yspeed = ( transferResults.a.y ); 
+                            B.xspeed = ( transferResults.b.x ); 
+                            B.yspeed = ( transferResults.b.y );
+
+                            // collided = true;
+                            // break;
+                        }
+                    }
+                    // if ( collided ) break;
+                }
+                // if ( collided ) break;
+            }
+            
+            // copy fireSpout buffer ctx to main ctx
+            mainContext.drawImage(fireBufferCanvas, 0, 0);
+
+            // HUD
+            let ctx = mainContext;
+            ctx.font = '13px sans-serif';
+            ctx.fillStyle = '#222230';
+            ctx.fillText(`FPS: ${_fpsActual.toFixed(2)}`, _screenWidth - 69, 17);
+            ctx.fillText(`#particles: ${numParticles}`, _screenWidth - 99, 33);
+
+            if ( !_paused ) {
+                window.requestAnimationFrame(Game.run);
+            }
+        }
+        Game.start();
+
+        window.addEventListener('blur', (event) => {
+            Game.pause();    
+        });
+
+
+        /* ------------------------------------------------------------------------
+
+                v KEYS & TOUCHES v
+
+        */
+        
+        Game.checkKeys = function () {
+            for ( let key of Game.keys ) {
+                if ( key && key.isDown && key.downFunc ) {
+                    key.downFunc();
+                }
+            }
+        }
+
+        Game.keys = new Array();
+        Game.setKey = function(name,keyCode,downFunc,upFunc){
+            Game.keys[keyCode] = { name : name, isDown : false, downFunc : downFunc, upFunc : upFunc == undefined ? null : upFunc };
+        }
+        Game.keyDown = function ( keycode ) {
+            // These keys are checked even when game is paused
+            if ( keycode === 80 ) {
+                // 'p' toggle pause
+                Game.pause();
+            } else if ( keycode === 83 ) {
+                // 's' play single frame (step)
+                Game.playSingleFrame();
+            } else if ( keycode === 66 ) {
+                // 'b' toggle background
+                Game.toggleBackground();
+            }
+            if ( Game.keys[keycode] ) {
+                // These only happen when Game.run() loop is running 
+                // and Game.checkKeys() gets executed
+                Game.keys[keycode].isDown = true;
+            }
+        }
+        Game.keyUp = function ( keycode ) {
+            if ( Game.keys[keycode] ) {
+                let key = Game.keys[keycode];
+                if ( key.upFunc != undefined ) {
+                    key.upFunc();
+                }
+                key.isDown = false;
+            }
+        }
+
+        Game.setKey('shoot', 32, shoot, stopShoot);
+        Game.setKey('left', 37, rotateGunLeft);
+        Game.setKey('right', 39, rotateGunRight);
+        Game.setKey('up', 38, increaseGun);
+        Game.setKey('down', 40, decreaseGun)
+        function rotateGunLeft() {
+            if(_gun.rot > -160)_gun.rot -= 1;
+        }
+        function rotateGunRight() {
+            if(_gun.rot < -20)_gun.rot += 1;
+        }
+        function shoot() {
+           _gun.shooting = true;
+        }
+        function increaseGun() {
+            if( _gun.height < _screenHeight * 0.8 ) {
+                _gun.height +=5;
+            }
+        }
+        function decreaseGun() {
+            if( _gun.height > _screenHeight * 0.1 ) {
+                _gun.height -=5;
+            }
+        }
+        function stopShoot() {
+           _gun.shooting = false;
+        }
+
+        document.addEventListener( "keydown",  function(e) {
+            console.log("keydown: "+e.which);
+            Game.keyDown(e.which);
+            document.getElementById('bg-message').style.display = "none";
+            e.preventDefault();
+        });
+        document.addEventListener( "keyup", function(e) {
+            Game.keyUp(e.which);
+            e.preventDefault();
+        })
+
+        document.addEventListener('touchstart', function(e){
+           _gun.shooting = true;
+            rotate_gun(e);
+            document.getElementById('bg-message').style.display = "none";
+            e.preventDefault();
+        }, {capture:true, passive: false});
+        document.addEventListener('touchmove', rotate_gun, {capture:true, passive: false});
+        // document.addEventListener('touchcancel', process_touchcancel, false);
+        document.addEventListener('touchend', function(e){
+           _gun.shooting = false;
+            // flame1.rot = 0;
+            e.preventDefault();
+        }, {capture:true, passive: false});
+        function rotate_gun(e){
+            let touches = e.changedTouches;
+            let touch = touches[0];
+            let x = touch.clientX;
+            let y = touch.clientY;
+            
+            let rad = Math.atan2( y - _gun.y, x - _gun.x );
+            let deg = radToDeg(rad);
+            let offDeg = degDiff( deg, -90 ); // Are we > or < than -90 ?
+            deg = Math.max(-80, Math.min( 80, offDeg )) - 90;
+            _gun.rot = deg;
+            e.preventDefault();
+        }
+        // ---------- ^ END INPUT SETUP ^ ----------------------------------------
+
+
+
+        /*------------------------------------------------------------------------
+
+                v UTILITIES v
+
+        */
+        function degToRad(deg) {
+            return Math.PI / 180 * deg;
+        }
+        function radToDeg(rad) {
+            return 180 / Math.PI * rad;
+        }
+        function cosDeg(deg) {
+            return Math.cos(degToRad(deg));
+        }
+        function sinDeg(deg) {
+            return Math.sin(degToRad(deg));
+        }
+        function constrainDeg(deg) {
+            deg = deg % 360;
+            deg = deg > 180 ? deg - 360 : deg;
+            return deg;
+        }
+        function isHexColor(colorCode) {
+            if ( typeof colorCode != "string" ) return false;
+            let RegExp = /|(^#[0-9A-F]{8}$)|(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i; 
+            return RegExp.test(colorCode); 
+        }
+
+        function checkCollision(ar1, ar2) {
+            // console.log(`checkCollision(${ar1.length},${ar2.length})`);
+            // ar1 and ar2 are arrays of gameElements
+            // returns arrays of hitters from ar1 and hitees from ar2
+            let tempCount = 0;
+            let hits = [];
+            let missiles = [];
+            for ( e1 of ar1 ) {
+                for ( e2 of ar2 ) {
+                    tempCount++;
+                    if ( overlapCircle(e1, e2) ) {
+                        // console.log( 'HIT!' );
+                        missiles.push(e1);
+                        hits.push(e2);
+                        // clumsy place to implement this?
+                        if ( e2.flame ) {
+                            // rotate target's flame
+                            let impactDeg = radToDeg(Math.atan2( e2.y-e1.y, e2.x-e1.x ));// e1.rot;
+                            e2.flamerot = impactDeg;
+                        }
+                        fauxTransferMomentum( e1, e2 );
+                        break;
+                    }
+                }
+                // if ( hit ) break;
+            }
+            // if(hits.length>0) console.log(`#checks: ${tempCount}`);
+            return {hitters: missiles, targets: hits};
+        }
+        function overlapBox( a, b ) {
+            // a and b are gameElements            
+            let aleft = a.x - a.width*0.5;
+            let aright = a.x + a.width*0.5;
+            let atop = a.y - a.height*0.5;
+            let abottom = a.y + a.height*0.5;
+            let bleft = b.x - b.width*0.5;
+            let bright = b.x + b.width*0.5;
+            let btop = b.y - b.height*0.5;
+            let bbottom = b.y + b.height*0.5;
+            
+            return !(bleft > aright || 
+                    bright < aleft || 
+                    btop > abottom ||
+                    bbottom < atop);
+        }
+
+        function overlapCircle( a, b ) {
+            // a and b are gameElements
+            let dxSq = Math.pow(b.x - a.x, 2);
+            let dySq = Math.pow(b.y - a.y, 2);
+            let dSq = dxSq + dySq;
+            let radiusSq = Math.pow(a.radius + b.radius, 2);
+            return dSq < radiusSq;
+        }
+
+        function pointToLineDist(px, py, lx, ly, deg) {
+            let rad = degToRad(deg);
+            let slope = Math.tan(rad);
+            // let intercept = ly - (slope * lx);
+            let intercept = 0;
+            px = px-lx;
+            py = py-ly;
+            
+            let dist = Math.abs(slope * px - py + intercept) / Math.sqrt(Math.pow(slope, 2) + 1);
+            return dist;
+        }
+
+        function degDiff (deg2, deg1) {
+            // returns signed smallest difference between 2 angles
+            // got this formula from Stack Overflow:
+            // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+            let diff = deg2 - deg1;
+            diff = mod( (diff + 180), 360 ) -180; // is (diff+180) % 360
+            function mod (a,n) {
+                return a - Math.floor(a/n) * n;
+            }
+            return diff;
+        }
+        function degAvg (deg1, deg2) {
+            return deg1 + degDiff(deg1,deg2) * 0.5;
+        }
+
+        function circleSweepTest( sprite1, sprite2 ) {
+            // circ1 and circ2 are Unit objects
+            if ( overlapCircle ( sprite1, sprite2 ) ) {
+                // they are already intersecting
+                return 0;
+            }
+            // algorithm from:  http://compsci.ca/v3/viewtopic.php?t=14897
+            let Axv = sprite1.xspeed,
+                Ayv = sprite1.yspeed,
+                Bxv = sprite2.xspeed,
+                Byv = sprite2.yspeed;
+
+            var maxint = 10000;
+            /* Returns the amount of frames until a collision will occur */ 
+            var t = maxint;
+            var A, B, C, D, DISC;
+            /* Breaking down the formula for t */ 
+            A = Math.pow( Axv, 2 ) + Math.pow( Ayv, 2 ) - 2 * Axv * Bxv + Math.pow( Bxv, 2 ) - 2 * Ayv * Byv + Math.pow( Byv, 2 );
+            B = -sprite1.x * Axv - sprite1.y * Ayv + Axv * sprite2.x + Ayv * sprite2.y + sprite1.x * Bxv - sprite2.x * Bxv + sprite1.y * Byv - sprite2.y * Byv;
+            C = Math.pow( Axv, 2 ) + Math.pow( Ayv, 2 ) - 2 * Axv * Bxv + Math.pow( Bxv, 2 ) - 2 * Ayv * Byv + Math.pow( Byv, 2 );
+            D = Math.pow( sprite1.x, 2 ) + Math.pow( sprite1.y, 2 ) - Math.pow( sprite1.radius, 2 ) - 2 * sprite1.x * sprite2.x + Math.pow( sprite2.x, 2 ) - 2 * sprite1.y * sprite2.y + Math.pow( sprite2.y, 2 ) - 2 * sprite1.radius * sprite2.radius - Math.pow( sprite2.radius, 2 );
+            DISC = Math.pow( (-2 * B), 2 ) - 4 * C * D;
+
+            /* If the discriminent is non negative, a collision will occur and * 
+            * we must compare the time to our current time of collision. We   * 
+            * udate the time if we find a collision that has occurd earlier   * 
+            * than the previous one.                                          */ 
+            if ( DISC >= 0 ) {
+                /* We want the smallest time */ 
+                t = Math.min (Math.min (t, 0.5 * (2 * B - Math.sqrt (DISC)) / A), 0.5 * (2 * B + Math.sqrt (DISC)) / A);
+            }
+            return t;
+        }
+
+        function transferMomentum( A, B ) {
+            // A and B are Unit objects at point of collision
+
+            // distance
+            var d = Math.sqrt ( Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y,2) );
+            // norm vector
+            var n = { x : (B.x - A.x) / d, y : (B.y - A.y) / d };
+            // momentum
+            var p = 2 * ( dot( {x : A.xspeed, y : A.yspeed}, n ) - dot( {x : B.xspeed, y : B.yspeed}, n) ) / (A.mass + B.mass);
+            // resultant vectors
+            var wAx = A.xspeed - p * B.mass * n.x;
+            var wAy = A.yspeed - p * B.mass * n.y;
+            var wBx = B.xspeed + p * A.mass * n.x;
+            var wBy = B.yspeed + p * A.mass * n.y;
+
+            return { a : { x : wAx, y : wAy }, b : { x : wBx, y : wBy }, p : (p*B.mass+p*A.mass) }; // What is p here? total momentum?
+
+        }
+
+        function fauxTransferMomentum( A, B ) {
+            // A pushes B a little
+            let force = 0.1;
+            let collisionRad = Math.atan2( B.y - A.y, B.x - A.x );
+            let cos = Math.cos(collisionRad);
+            let sin = Math.sin(collisionRad);
+            B.xspeed += cos * force;
+            B.yspeed += sin * force;
+        }
+
+        // vector math
+        function dot( A, B ) {
+            // A and B are {x,y} vectors
+            return A.x * B.x + A.y * B.y;
+        }
+
+        console.log(`dist: ${pointToLineDist(10,11,0,0,-90)}`);
+        
+    </script>
+</body>
+</html>

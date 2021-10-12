@@ -127,6 +127,7 @@
                 Game.blackHoles = [];
                 Game.prizes = [];
                 Game.graphics = [];
+                Game.misc_ar = [];
                 Game.currentTime = 0; // Game clock
                 Game.lastLevelIncreaseTime = 0;
                 Game.nextBlackHoleTime = Game.currentTime + 15000;
@@ -708,9 +709,8 @@
             */
 
 
-
-
-
+                    
+            
 
 
             /*          
@@ -721,27 +721,33 @@
             ============================================
             */
             class GameElement {
-                constructor(w, h, x, y, rot) {
+                constructor(data = {}) { // w, h, x, y, rot
                     // console.log("GameElement.constructor()")
-
-                    // init
-                    this._strokeColor = Game.strokeColor;
-                    this._fillColor = Game.fillColor;
-                    this._myArray = null;
-                    this._x = x ? x : 0;
-                    this._y = y ? y : 0;
-                    this._rot = rot ? rot : 0;
-                    this._width = w ? w : 0;
-                    this._height = h ? h : 0;
-                    this._value = 0;
-                    this._xspeed = this._yspeed = 0;
-                    this._hp = 1;
-                    this._maxHP = 1;
-                    this._myTween = null;
-                    this._explosive = true;
-                    this._mass = 1;
+                    this.init(data);
+                }
+                init(data){
+                
+                    this._x = data.x || 0;
+                    this._y = data.y || 0;
+                    this._yspeed = data.yspeed || 0;
+                    this._xspeed = data.xspeed || 0;
+                    this._width = data.width || data.diameter || 0;
+                    this._height = data.height || data.diameter || 0;
+                    this._diameter = data.diameter || (data.width + data.height) * 0.5 || 0;
+                    this._value = data.value || 0;
+                    this._hp = data.hp || 1;
+                    this._maxHP = data.maxHP || 1;
+                    this._myTween = data.myTween || null;
+                    this._explosive = data.explosive || true;
+                    this._mass = data.mass || 1;
+                    this._rot = constrainDegree(data.rot) || 0;
+                    this._fillColor = data.fillColor || data.color || "#ffffff";
+                    this._strokeColor = data.strokeColor || "#ffffff";
+                    this._strokeWeight = data.strokeWeight || 0;
+                    this._ctx = data.ctx || ctx;
                     this._startTime = Game.currentTime;
-                    this._explodeColors = ["#FF0000", "#FFFF00"];
+                    this._explodeColors = ["#FF0000","#FFFF00"];
+                    this.myArray = data.myArray || Game.misc_ar;    
                 }
                 predraw() {
                     // rotate and translate
@@ -802,9 +808,15 @@
                 set strokeColor(value) {
                     this._strokeColor = value;
                 }
+                get strokeColor(){
+                    return this._strokeColor;
+                }
 
                 set fillColor(value) {
                     this._fillColor = value;
+                }
+                get fillColor(){
+                    return this._fillColor;
                 }
 
                 get x() {
@@ -919,7 +931,7 @@
             class Ship extends GameElement {
                 constructor(w, h, x, y, rot) {
                     // console.log("Ship.constructor()")
-                    super(w, h, x, y, rot);
+                    super({width:w, height:h, x:x, y:y, rot:rot});
                     // init
                     this._value = 2;
                     this._lastShotTime = 0;
@@ -941,7 +953,7 @@
                 draw() {
                     this.predraw();
                     // Draw Triangle
-                    ctx.strokeStyle = this._strokeColor;
+                    ctx.strokeStyle = this.strokeColor;
                     // ctx.lineWidth = 2;
                     ctx.beginPath();
 
@@ -1157,9 +1169,9 @@
                     // this._shotFrequency = 200;
                     this._shotPower = 12;
                     this._value = -1;
-                    this._strokeColor = "orange";
-                    this._fillColor = Game.playerColor = "gold";
-                    this.hp = this._maxHP = 1;
+                    this.strokeColor = "orange";
+                    this.fillColor = "gold";
+                    this.hp = this.maxHP = 1;
                 }
                 draw() {
                     if (this._alive) {
@@ -1208,8 +1220,8 @@
                     this._shotFrequency = 100;
                     this._shotPower = 10;
                     this._value = -1;
-                    this._strokeColor = "#FFFFFF";
-                    this._fillColor = "white";
+                    this.strokeColor = "#FFFFFF";
+                    this.fillColor = "white";
                     this.hp = this._maxHP = 1;
                     this._index = 0;
                     this._myOpponents = Game.opponents;
@@ -1891,7 +1903,7 @@
                     this._ringColor = '#5555FF';
                     this._dotColor = "#55FF55";
                     this._maxAge = 28000; //ms
-                    this._type = type; // SHIELD, DOUBLE_SHOT, WING_MAN
+                    this._type = type; // SHIELD, DOUBLE_SHOT, WING_MAN, FLAME_THROWER
                 }
                 draw() {
                     this.predraw();
@@ -1923,7 +1935,7 @@
                     }
 
                     // rings
-                    
+                    console.log("Prize Age :: "+this.age);
                     let pct = (this.age % 1000) / 1000;
                     let pct2 = (pct + 0.5) % 1;
                     ctx.beginPath();
@@ -2090,6 +2102,8 @@
             */
             const canvas = document.getElementById('myCanvas');
             const backCanvas = document.getElementById('backCanvas');
+            const ctx = canvas.getContext('2d');
+            const backCtx = backCanvas.getContext('2d');
 
             function sizeCanvas() {
                 let targetWidth = 1920;
@@ -2097,7 +2111,8 @@
                 let windowDims = getWindowDimensions();
                 let wW = windowDims.width;
                 let wH = windowDims.height;
-                let scale = 0.5 + 0.5 * (targetWidth + targetHeight) / (wW + wH); // = 1
+                let scaleFactor = 0.75; // bigger number makes smaller game elements
+                let scale = scaleFactor + scaleFactor * (targetWidth + targetHeight) / (wW + wH); // = 1
                 // let trueArea = wW * wH;
                 // let targetArea = targetWidth * targetHeight;
                 // let scale = Math.max( 1, targetArea / trueArea );
@@ -2110,8 +2125,7 @@
                 // window.devicePixelRatio; 
                 backCtx.lineWidth = ctx.lineWidth = 2 * scale;
             }
-            const ctx = canvas.getContext('2d');
-            const backCtx = backCanvas.getContext('2d');
+            
 
             sizeCanvas();
             let x = 200;
@@ -2166,6 +2180,7 @@
             let px = canvas.width * 0.5 - 5;
             let py = canvas.height * 0.5 - 10;
             let playerShip = new PlayerShip(16, 20, px, py, 0);
+            console.log("playerShip.stroke: "+playerShip.strokeColor);
             playerShip.shield.on = false;
 
             playerShip.shield.hp += 1000;
@@ -2202,13 +2217,9 @@
             ============================================
             */
             function constrainDegree(deg) {
-                // console.log(`${deg}-mod-360: ${Math.round(mod( (deg + 180), 360 ) -180)}
-                //            vs${deg}-%-360: ${Math.round( (deg+180)% 360 - 180)}`);
-
-                function mod(a, n) {
-                    return a - Math.floor(a / n) * n; //a % n; //
-                }
-                return mod((deg + 180), 360) - 180; // is (diff+180) % 360
+                deg = deg % 360;
+                deg = deg > 180 ? deg - 360 : deg;
+                return deg;
             }
 
             function radToDeg(rad) {
