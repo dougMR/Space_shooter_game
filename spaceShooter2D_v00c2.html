@@ -246,7 +246,7 @@
                     }
                     if (Game.currentTime > Game.nextPrizeTime && Game.prizes.length < Game.maxPrizes && !Game.gameOver) {
                         Game.spawnPrize();
-                        Game.nextPrizeTime = Game.currentTime + 13000;
+                        Game.nextPrizeTime = Game.currentTime + 30000;
                     }
                     if ( Game.currentTime > Game.nextBlackHoleTime && !Game.gameOver ) {
                         let TempHole = new BlackHole();
@@ -355,11 +355,23 @@
                                 opponent.shoot();
                             }
                         }
-                        if (deg > 0) {
-                            opponent.turnRight(2);
-                        } else if (deg < 0) {
-                            opponent.turnLeft(2);
+                        // If on collision course to player...
+                        if( distanceSq( opponent, playerShip) < 40000 && Math.abs(deg) < 45 ) {
+                            // Turn away from player
+                            if (deg < 0) {
+                                opponent.turnRight(2);
+                            } else if (deg > 0) {
+                                opponent.turnLeft(2);
+                            }
+                        } else {
+                            // Turn towards player
+                            if (deg > 0) {
+                                opponent.turnRight(2);
+                            } else if (deg < 0) {
+                                opponent.turnLeft(2);
+                            }    
                         }
+                        
                     }
                 }
                 Game.flyGeese = function () {
@@ -392,8 +404,8 @@
                     let margin = 50;
                     let x = margin + (canvas.width - 2 * margin) * Math.random();
                     let y = margin + (canvas.height - 2 * margin) * Math.random();
-                    let prizes = ["shield", "doubleShot", "wingMan", "flamethrower"]
-                    let type = "flamethrower"; // prizes[Math.floor(Math.random() * prizes.length)];
+                    let prizes = ["shield", "shield", "doubleShot","doubleShot","doubleShot", "flamethrower"]; // "wingMan", 
+                    let type = prizes[Math.floor(Math.random() * prizes.length)];
                     let testPrize = new Prize(x, y, type);
                     testPrize.myArray = Game.prizes;
                     if (!Game.firstPrizeDone) {
@@ -2339,12 +2351,40 @@
                         ctx.fill();
                     } else if (this._type === "flamethrower") {
                         // draw flame icon
-                        ctx.arc(0, 0, this._radius * 0.4, 0, 2 * Math.PI);
-                        ctx.fillStyle = this._dotColor;
+                        // ctx.arc(0, 0, this._radius * 0.4, 0, 2 * Math.PI);
+                        // ctx.fillStyle = this._dotColor;
+                        // ctx.fill();
+                        // ctx.beginPath();
+                        // ctx.arc(0, 0, this._radius * 0.2, 0, 2 * Math.PI);
+                        // ctx.fillStyle = '#FFCC00';
+                        // ctx.fill();
+
+                        
+                        let size = 14
+                        let hw = 0;
+                        let hh = 0-size*1;
+                        ctx.moveTo(hw, hh);
+                        ctx.quadraticCurveTo(hw+1*size, hh, hw+1*size, hh+1*size);
+                        ctx.quadraticCurveTo(hw+1*size, hh+2*size, hw,hh+2*size);
+                        ctx.quadraticCurveTo(hw-0.75*size, hh+2*size, hw-0.75*size,hh+1.2*size);
+                        ctx.quadraticCurveTo(hw-0.75*size, hh+0.8*size, hw,hh+0.7*size);
+                        ctx.quadraticCurveTo(hw+0.25*size, hh+0.7*size, hw+0.25*size,hh+0.35*size);
+                        ctx.quadraticCurveTo(hw+0.25*size, hh, hw,hh);
+                        ctx.fillStyle  = "#FF3300";
                         ctx.fill();
+                        // inner flame
                         ctx.beginPath();
-                        ctx.arc(0, 0, this._radius * 0.2, 0, 2 * Math.PI);
-                        ctx.fillStyle = '#FFCC00';
+                        size = 10
+                        hw = 0;
+                        hh = 0-size*1;
+                        ctx.moveTo(hw, hh);
+                        ctx.quadraticCurveTo(hw+1*size, hh, hw+1*size, hh+1*size);
+                        ctx.quadraticCurveTo(hw+1*size, hh+2*size, hw,hh+2*size);
+                        ctx.quadraticCurveTo(hw-0.75*size, hh+2*size, hw-0.75*size,hh+1.2*size);
+                        ctx.quadraticCurveTo(hw-0.75*size, hh+0.8*size, hw,hh+0.7*size);
+                        ctx.quadraticCurveTo(hw+0.25*size, hh+0.7*size, hw+0.25*size,hh+0.35*size);
+                        ctx.quadraticCurveTo(hw+0.25*size, hh, hw,hh);
+                        ctx.fillStyle  = "#FFCC00";
                         ctx.fill();
                     }   
 
@@ -2375,7 +2415,7 @@
                             // turn collector's shield on
                             collector.shield.on = true;
                             // add 10hp to the shield
-                            collector.shield.hp += 10;
+                            collector.shield.hp += 5;
                             collector.shield.flashColor("#FFFF00");
                             break;
                         case "doubleShot":
@@ -2390,7 +2430,7 @@
                             break;
                         case "flamethrower":
                             // add 15 seconds of flamethrowerTime
-                            collector.flamethrowerTime += 15000;
+                            collector.flamethrowerTime += 5000;
                             break;
                         default:
                     }
@@ -2605,7 +2645,8 @@
             console.log("playerShip.stroke: "+playerShip.strokeColor);
             playerShip.shield.on = false;
 
-            playerShip.shield.hp += 1000;
+            playerShip.shield.hp += 5;
+            /*
             let gooseShip = new GooseShip(px, py, 0);
             gooseShip.myArray = Game.geese;
             let gooseShip2 = new GooseShip(px, py, 0);
@@ -2614,6 +2655,7 @@
             gooseShip3.myArray = Game.geese;
             let gooseShip4 = new GooseShip(px, py, 0);
             gooseShip4.myArray = Game.geese;
+            */
             Game.spawnOpponent();
             // Game.spawn ( Ship, Game.opponents );
             Game.start();
@@ -2670,6 +2712,11 @@
                 let xDist = A.x - B.x;
                 let yDist = A.y - B.y;
                 return hypotenuse(xDist, yDist);
+            }
+            function distanceSq(A, B) {
+                let xDist = A.x - B.x;
+                let yDist = A.y - B.y;
+                return Math.pow(xDist, 2) + Math.pow(yDist, 2);
             }
             function radianFromTo(A, B) {
                 return Math.atan2(B.y - A.y, B.x - A.x);
